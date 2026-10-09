@@ -50,7 +50,7 @@ export default function WaterTab() {
         </View>
       </View>
 
-      {daily.length > 0 && (
+      {daily.length > 0 ? (
         <View className={styles.section}>
           <View className={styles.chart}>
             {daily.map(d => (
@@ -69,21 +69,31 @@ export default function WaterTab() {
             ))}
           </View>
         </View>
+      ) : (
+        <View className={styles.section}>
+          <Text className={styles.muted}>{t('water_no_chart')}</Text>
+        </View>
       )}
 
       <View className={`${styles.section} ${clogged ? styles.warnBox : ''}`}>
         <View className={styles.row}>
           <Text className={styles.sectionTitle}>{t('filter')}</Text>
           <Text className={`${styles.chip} ${clogged ? styles.chip_warn : styles.chip_ok}`}>
-            {monitor === false ? t('s_boost_off') : clogged ? t('filter_clog') : t('filter_ok')}
+            {monitor === false ? t('filter_off') : clogged ? t('filter_clog') : t('filter_ok')}
           </Text>
         </View>
         <Text className={styles.muted}>
-          {t('filter_baseline')}: {s.filterBaseline.toFixed(3)} {t('lpm')} · {t('filter_threshold')}{' '}
-          {clogThreshold}%
+          {s.filterBaseline > 0
+            ? t('filter_line', s.filterBaseline.toFixed(3), clogThreshold)
+            : t('filter_learning')}
         </Text>
         <View className={styles.buttons}>
-          <Button block onClick={() => actions.command.set('filter_cleaned')}>
+          <Button
+            block
+            onClick={() =>
+              confirm(t('confirm_filter_cleaned'), () => actions.command.set('filter_cleaned'))
+            }
+          >
             {t('filter_cleaned')}
           </Button>
         </View>
