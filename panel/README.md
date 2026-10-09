@@ -12,7 +12,7 @@
 ## Запуск
 
 1. На Tuya MiniApp Developer Platform создать панельный MiniApp, привязать к PID
-   `0uo7msdnt2yn1lgp` и вписать его ID в `project.tuya.json` → `projectId`.
+   `0uo7msdnt2yn1lgp` (уже создан: `tyywwyyjeyzueqb7n2`, прописан в `project.tuya.json`).
 2. `npm install`, затем открыть эту папку в Tuya MiniApp IDE.
 3. Plugins → Panel Tools → виртуальное устройство продукта → отладка.
 
