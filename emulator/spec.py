@@ -3,7 +3,7 @@
 Канальные DP раскрываются в 8 штук: id = base + N, code = code_N (N = 1..8).
 Значения в устройстве хранятся «по-человечески» (литры, проценты), а в облако
 уходят в формате Tuya: value — целое со сдвигом scale, enum — строка,
-bitmap — целое, raw — bytes (транспорт сам переводит в base64).
+bitmap/fault — целое, raw — bytes (транспорт сам переводит в base64).
 """
 import json
 import math
@@ -17,7 +17,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "spec" / "dp.json"
 class Dp:
     id: int
     code: str
-    type: str          # bool | value | enum | string | raw | bitmap
+    type: str          # bool | value | enum | string | raw | bitmap | fault
     mode: str          # ro | rw | wr
     name: str
     channel: int = 0   # 1..8 для канальных DP, 0 — глобальный
@@ -69,7 +69,7 @@ class Spec:
         if dp.type == "enum":
             assert value in dp.range, f"{code}: {value!r} нет в {dp.range}"
             return value
-        if dp.type == "bitmap":
+        if dp.type in ("bitmap", "fault"):
             return int(value)
         if dp.type == "string":
             b = str(value).encode("utf-8")[: dp.maxlen]

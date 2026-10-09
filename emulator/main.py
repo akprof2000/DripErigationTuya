@@ -115,7 +115,7 @@ class Emulator:
         if self.offline or self.client is None:
             if self.verbose or "event" in packet:
                 shown = {k: (v.hex() if isinstance(v, bytes) else v) for k, v in packet.items()}
-                print("→", shown if "event" not in packet else packet["event"])
+                print("→", shown if "event" not in packet else self.event_text(packet["event"]))
             return
         dps = {}
         for code, v in packet.items():
@@ -127,6 +127,18 @@ class Emulator:
         if dps:
             self.client.push_dps(dps)
         log.debug("→ облако: %s", dps)
+
+    def event_text(self, raw):
+        """Человекочитаемое событие для консоли (так же будет рисовать панель)."""
+        e = json.loads(raw)
+        ch = e.get("ch")
+        name = f"№ {ch} ({self.dev.cfg.channels[ch - 1].name})" if ch else ""
+        return {
+            "valve": lambda: f"клапан {name}: {e['s']}" + (f", влажность {e['h']} %" if "h" in e else "")
+                             + (" (погода)" if e.get("w") else ""),
+            "clog": lambda: f"засор фильтра: {e['r']} л/мин при норме {e['e']}",
+            "hw_fault": lambda: "аварийный режим: " + ", ".join(e["f"]),
+        }.get(e["t"], lambda: e["t"])()
 
     # ------------------------------------------------------------ цикл
     def run_loop(self):

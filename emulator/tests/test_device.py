@@ -41,7 +41,8 @@ class Clock:
 class SpecTest(unittest.TestCase):
     def test_expand_channels(self):
         self.assertEqual(SPEC.by_code["humidity_1"].id, 131)
-        self.assertEqual(SPEC.by_code["name_8"].id, 178)
+        self.assertEqual(SPEC.by_code["border_8"].id, 168)
+        self.assertEqual(len(SPEC.dps), 56)            # как в консоли Tuya
         self.assertEqual(SPEC.by_id[158].code, "mode_8")
 
     def test_value_scale(self):
@@ -183,8 +184,8 @@ class DeviceTest(unittest.TestCase):
         d.apply_dp("mode_2", "off", 0, 0)
         pk = d.report()
         self.assertEqual(pk, [{"mode_2": "off"}])
-        d.event("тест")
-        self.assertEqual(d.report(), [{"event": "тест"}])
+        d.event("valve", ch=3, s="open_hum", h=41)
+        self.assertEqual(d.report(), [{"event": '{"t":"valve","ch":3,"s":"open_hum","h":41}'}])
 
     def test_adc_raw_layout(self):
         w, d = make()

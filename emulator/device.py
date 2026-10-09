@@ -7,7 +7,7 @@ valves.cpp, sensors.h/.cpp, objects.cpp, telegram.cpp). Где поведени�
 статистика окон.
 
 Уведомления, которые прошивка слала в Telegram, здесь становятся событиями
-(DP event). Диалоги бота (калибровка, поиск датчика) стали «мастерами»:
+(DP event, JSON с кодом — см. docs/dp.md). Диалоги бота (калибровка, поиск датчика) стали «мастерами»:
 команда приходит JSON-строкой в DP wizard, состояние уходит в wizard_state.
 """
 import json
@@ -37,6 +37,8 @@ FM_BAD_WINDOWS = 3      # подряд «плохих» минут для тре
 
 @dataclass
 class Channel:
+    # название грядки живёт в облачных свойствах устройства (его хранит панель);
+    # здесь — только для консоли эмулятора
     name: str = "🌱 Растение"
     border: int = 60
     mode: str = MODE_AUTO
@@ -146,15 +148,17 @@ class Device:
         self.world.open_valves = [False] * self.n
         self.world.drain_on = False
         if not initial:
-            self.event("🔄 Устройство перезагружено")
+            self.event("reboot")
 
     def save(self):
         self.cfg.flow_session = self.flow_session
         if self.state_path:
             self.cfg.save(self.state_path)
 
-    def event(self, text):
-        self.events.append(text)
+    def event(self, code, **fields):
+        """Событие для DP event: JSON с кодом, без текста. Текст, названия грядок
+        и перевод подставляет панель — так событие всегда влезает в 255 байт."""
+        self.events.append(json.dumps({"t": code, **fields}, separators=(",", ":")))
 
     # =====================================================================
     # sensors.cpp / sensors.h
@@ -258,7 +262,7 @@ class Device:
     def spillage(self, now):
         if self.drain_active:
             return
-        self.event("🗑️ Запуск пролива дренажа")
+        self.event("drain_start")
         self.world.drain_on = True
         self._set_pump(True)
         self.drain_start = now
@@ -269,7 +273,7 @@ class Device:
             self.world.drain_on = False
             self.drain_active = False
             self.stop_pump_if_need()
-            self.event("✅ Пролив дренажа завершён")
+            self.event("drain_end")
 
     def loads_off(self):
         self.pump_start = None
@@ -293,64 +297,54 @@ class Device:
             self.valve_close(i, unix)
         if notify:
             self.old_mode[i] = new_state
-            self.event(self._valve_event_text(i, new_state, p))
-
-    def _valve_event_text(self, i, state, p):
-        t = f"№ {i + 1} ({self.cfg.channels[i].name})"
-        return {
-            V_OPEN_HUM: f"💧 Клапан {t} открыт: влажность {p} %",
-            V_CLOSE_HUM: f"✅ Клапан {t} закрыт: влажность {p} %",
-            V_HYST: f"〰️ Клапан {t}: влажность {p} % в зоне гистерезиса",
-            V_FORCED_OPEN: f"✅ Клапан {t} открыт принудительно",
-            V_FORCED_CLOSE: f"⛔ Клапан {t} закрыт принудительно",
-        }[state]
+            self.event("valve", ch=i + 1, s=new_state, h=p)
 
     def start_tank_fill(self, now):
         if self.fill_active:
             return
         self.fill_active = True
         self.fill_start = now
-        self.event("🚰 Старт заливки бака!")
+        self.event("tank_fill")
 
     def check_weather(self, now):
         blocked = night_block = rain_block = False
         if self.world.rain:
             if not self.rain_now:
-                self.event("🌧️ Пошёл сильный дождь")
+                self.event("rain_start")
                 self.rain_now = True
             if not self.cfg.run_on_rain:
                 blocked = rain_block = True
                 if not self.old_rmode:
                     self.old_rmode = True
-                    self.event("🌧️ Идёт дождь — отключаем полив!")
+                    self.event("rain_block")
         else:
             if self.rain_now:
                 self.rain_now = False
-                self.event("☀️ Влажность после дождя достигла нормы")
+                self.event("rain_end")
             if self.old_rmode:
                 self.old_rmode = False
-                self.event("☀️ Восстановление работы после дождя!")
+                self.event("rain_resume")
         if self.world.night:
             if not self.night_now:
                 self.night_now = True
-                self.event("🌙 Наступила ночь")
+                self.event("night_start")
             if not self.cfg.run_on_night:
                 blocked = night_block = True
                 if not self.old_nmode:
                     self.old_nmode = True
-                    self.event("🌙 Переход в энергосберегающее состояние!")
+                    self.event("night_block")
                     if self.is_open_flag:            # valveOpened() со сбросом
                         self.is_open_flag = False
                         self.start_tank_fill(now)
         else:
             if self.night_now:
                 self.night_now = False
-                self.event("☀️ Наступил день")
+                self.event("day_start")
             if self.old_nmode:
                 self.old_nmode = False
-                self.event("☀️ Восстановление работы после ночного режима!")
+                self.event("night_resume")
                 if self.rain_now and not self.cfg.run_on_rain:
-                    self.event("🌧️ Погодная обстановка не достигла нормы!")
+                    self.event("rain_still")
         return blocked, night_block, rain_block
 
     def control_valves(self, weather, now, unix):
@@ -363,7 +357,7 @@ class Device:
                 self.valve_close(i, unix)
                 if self.old_mode[i] != V_FORCED_CLOSE:
                     self.old_mode[i] = V_FORCED_CLOSE
-                    self.event(f"⛔ Клапан № {i + 1} ({self.cfg.channels[i].name}) закрыт")
+                    self.event("valve", ch=i + 1, s=V_FORCED_CLOSE, w=1)
 
     # ---- контроль засора фильтра (упрощённая модель objects.cpp) ----
     def _filter_minute(self, valves_changed):
@@ -385,7 +379,7 @@ class Device:
             self.fm_bad += 1
             if self.fm_bad >= FM_BAD_WINDOWS and not self.clogged:
                 self.clogged = True
-                self.event(f"🚨 Засор фильтра: поток {self.flow_rate:.3f} л/мин при норме {expected:.3f}")
+                self.event("clog", r=round(self.flow_rate, 3), e=round(expected, 3))
         else:
             self.fm_bad = 0
 
@@ -397,7 +391,7 @@ class Device:
             if not self.fault_shutdown_done:
                 self.fault_shutdown_done = True
                 self.loads_off()
-                self.event("🆘 Аварийный режим: " + ", ".join(sorted(self.hw_faults)) + " — полив остановлен")
+                self.event("hw_fault", f=sorted(self.hw_faults))
             return
         self.fault_shutdown_done = False
 
@@ -430,15 +424,13 @@ class Device:
     def apply_dp(self, code, value, now, unix):
         ch_cfg = None
         base, _, num = code.rpartition("_")
-        if num.isdigit() and base in ("mode", "border", "name"):
+        if num.isdigit() and base in ("mode", "border"):
             ch_cfg = self.cfg.channels[int(num) - 1]
         if ch_cfg is not None:
             if base == "mode":
                 ch_cfg.mode = value
-            elif base == "border":
-                ch_cfg.border = value
             else:
-                ch_cfg.name = value or "🌱 Растение"
+                ch_cfg.border = value
             self.save()
             return
         if code in ("run_on_rain", "run_on_night", "delta_hum", "boost_pump_valves",
@@ -471,18 +463,18 @@ class Device:
             for i in range(self.n):
                 self.set_low_high(i, 1024, 1024)
             self.save()
-            self.event("✅ Сброс настроек выполнен")
+            self.event("reset_settings")
         elif cmd == "clear_flow":
             self.flow_session = 0.0
             self.cfg.flow_total = 0.0
             self.save()
-            self.event("🧹 Данные расхода стёрты")
+            self.event("clear_flow")
         elif cmd == "filter_cleaned":
             self.cfg.clean_flow_per_valve = 0.0
             self.clogged = False
             self.fm_bad = 0
             self.save()
-            self.event("🧽 Фильтр прочищен: эталон потока сброшен")
+            self.event("filter_cleaned")
 
     # ---- мастера калибровки и поиска (telegram.cpp, Dlg::Calib*/Search*/CalibManual) ----
     def _wizard(self, text):
@@ -599,7 +591,6 @@ class Device:
             out[f"valve_{n}"] = self.old_mode[i]
             out[f"mode_{n}"] = c.mode
             out[f"border_{n}"] = c.border
-            out[f"name_{n}"] = c.name
         return {k: s.encode(k, v) for k, v in out.items()}
 
     def report(self, full=False):
