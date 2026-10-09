@@ -1,6 +1,6 @@
 """Превью панели 750×1334 для «IoT Platform Display Setting» MiniApp в консоли Tuya.
 
-python tools/gen_preview.py  →  assets/preview-ru.png, assets/preview-en.png
+python tools/gen_preview.py  →  assets/preview-{ru,en,zh}.png
 Это макет главного экрана (вкладка «Грядки») с правдоподобными данными,
 а не скриншот: в IDE симулятор слишком мелкий для 750×1334.
 """
@@ -11,8 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets"
 W, H = 750, 1334
-FONT = "C:/Windows/Fonts/segoeui.ttf"
-FONT_B = "C:/Windows/Fonts/segoeuib.ttf"
+FONTS = {   # (обычный, жирный); для китайского — Microsoft YaHei
+    "latin": ("C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/segoeuib.ttf"),
+    "zh": ("C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc"),
+}
 
 BG = (244, 246, 248)
 CARD = (255, 255, 255)
@@ -28,16 +30,23 @@ TEXTS = {
     "en": {"title": "Drip Irrigation", "bed": "Bed", "tabs": ["Beds", "Water", "Events", "Settings"],
            "chips": ["Day", "Dry", "0.06 L/min"], "open": "watering · below threshold",
            "close": "closed · moist enough"},
+    "zh": {"title": "滴灌控制器", "bed": "花床", "tabs": ["花床", "用水", "事件", "设置"],
+           "chips": ["白天", "干燥", "0.06 升/分"], "open": "浇水中 · 低于阈值", "close": "已关闭 · 湿度足够"},
 }
 HUM = [63, 48, 66, 57, 61, 52, 59, 64]
 BORDER = 55
 
 
+LANG = "latin"
+
+
 def font(size, bold=False):
-    return ImageFont.truetype(FONT_B if bold else FONT, size)
+    return ImageFont.truetype(FONTS[LANG][1 if bold else 0], size)
 
 
 def render(lang):
+    global LANG
+    LANG = "zh" if lang == "zh" else "latin"
     t = TEXTS[lang]
     img = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(img)
@@ -78,7 +87,7 @@ def render(lang):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    for lang in ("ru", "en"):
+    for lang in ("ru", "en", "zh"):
         render(lang).save(OUT / ("preview-%s.png" % lang))
         print(OUT / ("preview-%s.png" % lang))
 
