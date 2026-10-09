@@ -1,0 +1,9 @@
+# 🔐 лицензия устройства и данные активации
+emulator/tuya.json
+emulator/tuya_storage.json
+# 💾 состояние эмулятора (аналог Config на SD)
+emulator/state.json
+__pycache__/
+.venv/
+node_modules/
+dist/

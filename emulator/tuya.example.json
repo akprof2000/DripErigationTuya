@@ -1,0 +1,6 @@
+{
+  "pid": "PID продукта из консоли Tuya IoT",
+  "uuid": "UUID лицензии",
+  "authkey": "AuthKey лицензии",
+  "version": "1.0.0"
+}
