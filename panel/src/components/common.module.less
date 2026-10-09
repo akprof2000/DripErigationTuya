@@ -1,0 +1,212 @@
+// Общие стили вкладок. Цвета — переменные темы App (светлая/тёмная).
+@accent: var(--app-M1, #1989fa);
+
+.card {
+  background: var(--app-B3, #fff);
+  border-radius: 24rpx;
+  padding: 24rpx;
+}
+
+.section {
+  background: var(--app-B3, #fff);
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin-top: 24rpx;
+}
+
+.sectionTitle {
+  font-size: 30rpx;
+  font-weight: 500;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.cardTitle {
+  font-size: 28rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.big {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 500;
+  margin: 8rpx 0;
+}
+
+.huge {
+  display: block;
+  font-size: 80rpx;
+  font-weight: 500;
+  text-align: center;
+}
+
+.muted {
+  display: block;
+  font-size: 22rpx;
+  color: var(--app-B3-N3, rgba(0, 0, 0, 0.45));
+  margin-top: 8rpx;
+}
+
+.bar {
+  position: relative;
+  height: 10rpx;
+  border-radius: 6rpx;
+  background: var(--app-B3-N7, rgba(0, 0, 0, 0.08));
+}
+
+.barFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 6rpx;
+  background: @accent;
+}
+
+.barMark {
+  position: absolute;
+  top: -6rpx;
+  width: 4rpx;
+  height: 22rpx;
+  background: var(--app-B3-N1, #000);
+}
+
+.dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+}
+.dot_water { background: @accent; }
+.dot_ok { background: #07c160; }
+.dot_idle { background: #c8c9cc; }
+.dot_off { background: #ee0a24; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.chip {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+.chip_accent { background: rgba(25, 137, 250, 0.12); color: #1989fa; }
+.chip_ok { background: rgba(7, 193, 96, 0.12); color: #07a050; }
+.chip_warn { background: rgba(255, 151, 106, 0.16); color: #d46b08; }
+.chip_danger { background: rgba(238, 10, 36, 0.12); color: #ee0a24; }
+.chip_muted { background: var(--app-B3-N7, rgba(0, 0, 0, 0.06)); color: var(--app-B3-N2, rgba(0, 0, 0, 0.7)); }
+
+.alert {
+  margin-top: 16rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  background: rgba(238, 10, 36, 0.1);
+  color: #ee0a24;
+  font-size: 26rpx;
+}
+
+.warnBox {
+  border: 2rpx solid #ff976a;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  height: 160rpx;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+.chartBar {
+  flex: 1;
+  background: @accent;
+  border-radius: 6rpx 6rpx 0 0;
+  min-height: 4rpx;
+}
+
+.eventRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--app-B3-N7, rgba(0, 0, 0, 0.06));
+  font-size: 26rpx;
+}
+
+.eventTime {
+  flex: none;
+  color: var(--app-B3-N3, rgba(0, 0, 0, 0.45));
+  font-size: 22rpx;
+}
+
+.buttons {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.segment {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8rpx;
+}
+
+.segItem {
+  text-align: center;
+  font-size: 24rpx;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+  background: var(--app-B3-N7, rgba(0, 0, 0, 0.05));
+}
+
+.segActive {
+  background: rgba(25, 137, 250, 0.14);
+  color: #1989fa;
+}
+
+.steps {
+  display: flex;
+  gap: 8rpx;
+  margin: 16rpx 0 32rpx;
+}
+
+.stepBar {
+  flex: 1;
+  height: 6rpx;
+  border-radius: 4rpx;
+  background: var(--app-B3-N7, rgba(0, 0, 0, 0.08));
+}
+
+.stepDone {
+  background: @accent;
+}
+
+.center {
+  text-align: center;
+  display: block;
+}
