@@ -1,6 +1,6 @@
 """Иконка устройства для консоли Tuya: капля воды с ростком на зелёном фоне.
 
-python tools/gen_icon.py  →  assets/icon.png (512×512) и assets/icon-256.png
+python tools/gen_icon.py  →  assets/icon-800.png (для консоли Tuya), icon.png (512), icon-256.png
 Рисуется с 4-кратным запасом и уменьшается — так края получаются гладкими.
 """
 from pathlib import Path
@@ -62,6 +62,7 @@ def main():
         drop(d, int(cx + dx * S * 0.55), int(S * 0.90), int(S * 0.028), (200, 230, 201))
 
     OUT.mkdir(exist_ok=True)
+    img.resize((800, 800), Image.LANCZOS).save(OUT / "icon-800.png")   # консоль Tuya: 800×800
     big = img.resize((512, 512), Image.LANCZOS)
     big.save(OUT / "icon.png")
     big.resize((256, 256), Image.LANCZOS).save(OUT / "icon-256.png")
