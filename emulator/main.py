@@ -11,6 +11,7 @@
 import argparse
 import json
 import logging
+import queue
 import shlex
 import sys
 import threading
@@ -67,6 +68,7 @@ class Emulator:
         self.unix = time.time() - lt.tm_sec    # «часы» эмулятора, стартуют с реального времени
         self.lock = threading.RLock()
         self.client = None
+        self.outbox = queue.Queue()
         self.offline = args.offline
         self.verbose = args.verbose
         self.running = True
@@ -88,10 +90,17 @@ class Emulator:
         threading.Thread(target=self.cloud_loop, daemon=True).start()
 
     def cloud_loop(self):
-        # без self.lock: подключение может идти секундами, а консоль и модель
-        # должны работать; колбэки клиента сами берут lock
+        # Весь обмен с облаком — только в этом потоке: TLS-сокет не терпит
+        # одновременной записи из двух потоков (SSL BAD_LENGTH и разрыв).
+        # Остальные потоки кладут отчёты в outbox. self.lock здесь не берём:
+        # подключение может идти секундами, а консоль и модель должны работать.
         while self.running:
             self.client.loop()
+            while not self.outbox.empty():
+                dps = self.outbox.get()
+                if self.client.online:   # офлайн — выбрасываем: после подключения уйдёт полный снимок
+                    self.client.push(dps)
+                    log.debug("→ облако: %s", dps)
             time.sleep(0.05)
 
     def _on_connected(self):
@@ -122,9 +131,7 @@ class Emulator:
                 shown = {k: (v.hex() if isinstance(v, bytes) else v) for k, v in packet.items()}
                 print("→", shown if "event" not in packet else self.event_text(packet["event"]))
             return
-        dps = {self.spec.by_code[code].id: v for code, v in packet.items()}
-        if self.client.push(dps):
-            log.debug("→ облако: %s", dps)
+        self.outbox.put({self.spec.by_code[code].id: v for code, v in packet.items()})
 
     def event_text(self, raw):
         """Человекочитаемое событие для консоли (так же будет рисовать панель)."""
