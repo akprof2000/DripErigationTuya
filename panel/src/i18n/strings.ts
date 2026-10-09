@@ -62,7 +62,8 @@ export default {
     filter_learning: 'Learning the normal flow: water for a few minutes with clean filter',
     filter_cleaned: 'Filter cleaned',
     confirm_filter_cleaned: 'Mark the filter as cleaned? The normal flow will be learned again.',
-    water_no_chart: 'Daily chart will appear after a few days of watering',
+    water_no_chart: 'The daily chart will appear after the first watering',
+    water_by_day: 'Water per day, L',
     clear_flow: 'Reset water counters',
 
     s_run_on_rain: 'Water in rain',
@@ -192,7 +193,8 @@ export default {
     filter_learning: 'Запоминаю норму расхода: поливайте несколько минут с чистым фильтром',
     filter_cleaned: 'Фильтр прочищен',
     confirm_filter_cleaned: 'Отметить фильтр прочищенным? Норма расхода будет запомнена заново.',
-    water_no_chart: 'График по дням появится после нескольких дней полива',
+    water_no_chart: 'График по дням появится после первого полива',
+    water_by_day: 'Расход по дням, л',
     clear_flow: 'Стереть счётчики воды',
 
     s_run_on_rain: 'Работать в дождь',

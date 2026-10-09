@@ -5,7 +5,7 @@ import { Button, Dialog, DialogInstance } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { t, faultsOf } from '@/lib/dp';
 import { useStatus } from '@/lib/hooks';
-import { loadDaily } from '@/lib/cloud';
+import { loadDailyFromLog } from '@/lib/cloud';
 import styles from './common.module.less';
 
 const FLOW_TOTAL_DP = 108;
@@ -20,8 +20,8 @@ export default function WaterTab() {
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
 
   useEffect(() => {
-    // flow_total — накопительный счётчик ×10: «minux» даёт прирост за сутки
-    if (devId) loadDaily(devId, FLOW_TOTAL_DP, 7, 'minux').then(setDaily);
+    // flow_total — накопительный счётчик (scale 1): прирост за сутки = расход за день, л
+    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, 7, 'delta', 1).then(setDaily);
   }, [devId]);
 
   const maxDay = Math.max(1, ...daily.map(d => d.value));
@@ -50,8 +50,9 @@ export default function WaterTab() {
         </View>
       </View>
 
-      {daily.length > 0 ? (
+      {daily.some(d => d.value > 0) ? (
         <View className={styles.section}>
+          <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
           <View className={styles.chart}>
             {daily.map(d => (
               <View
@@ -61,10 +62,12 @@ export default function WaterTab() {
               />
             ))}
           </View>
-          <View className={styles.row}>
+          <View className={styles.chartLabels}>
             {daily.map(d => (
-              <Text key={d.day} className={styles.muted}>
-                {d.day.slice(6)}
+              <Text key={d.day} className={styles.chartLabel}>
+                {`${d.value >= 10 ? Math.round(d.value) : d.value.toFixed(1)}\n${d.day.slice(
+                  6
+                )}.${d.day.slice(4, 6)}`}
               </Text>
             ))}
           </View>

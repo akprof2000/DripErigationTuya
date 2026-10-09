@@ -5,7 +5,7 @@ import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames } from '@/lib/hooks';
-import { loadDaily } from '@/lib/cloud';
+import { loadDailyFromLog } from '@/lib/cloud';
 import styles from '@/components/common.module.less';
 import page from '../home/index.module.less';
 
@@ -23,7 +23,7 @@ export default function ChannelPage() {
 
   useEffect(() => setDraft(border), [border]);
   useEffect(() => {
-    if (devId) loadDaily(devId, 130 + ch, 7, 'avg').then(setHistory);
+    if (devId) loadDailyFromLog(devId, 130 + ch, 7, 'avg').then(setHistory);
   }, [devId, ch]);
 
   const [editing, setEditing] = useState(false);
