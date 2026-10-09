@@ -1,15 +1,17 @@
 """compat.py — то, что в CPython и MicroPython называется по-разному.
 
-Tuya-клиенту нужны AES-128-ECB, MD5, CRC32, base64, HTTPS POST и TLS-сокет.
-В MicroPython (ESP32) это cryptolib, hashlib (md5 есть при включённом SSL),
-binascii, requests и ssl.SSLContext; в CPython — pycryptodome (если есть) или
-встроенная реализация AES ниже, urllib и ssl.
+Tuya-клиенту (протокол TuyaOpen 2.3) нужны AES-128-GCM, MD5, base64, HTTPS POST
+и TLS-сокет. В MicroPython (ESP32) есть cryptolib, но только с ECB/CBC/CTR, поэтому
+GCM собран здесь вручную: CTR — через ECB одним вызовом, GHASH — на целых числах.
+В CPython блочный шифр берётся из pycryptodome.
 """
 import binascii
 import hashlib
 import json
+import os
 import socket
 import ssl
+import struct
 import time
 
 try:
@@ -34,19 +36,89 @@ def _unpad(data):
 
 
 if MICROPYTHON:
-    def aes_encrypt(key, data):
-        return _mp_aes(key[:16], 1).encrypt(_pad(data))   # 1 = MODE_ECB
+    def aes_ecb(key, data):
+        return _mp_aes(key[:16], 1).encrypt(data)   # 1 = MODE_ECB, data кратно 16
 
-    def aes_decrypt(key, data):
-        return _unpad(_mp_aes(key[:16], 1).decrypt(data))
+    def _ecb_decrypt(key, data):
+        return _mp_aes(key[:16], 1).decrypt(data)
 else:
     from Crypto.Cipher import AES   # pycryptodome — уже стоит в .venv эмулятора
 
-    def aes_encrypt(key, data):
-        return AES.new(key[:16], AES.MODE_ECB).encrypt(_pad(data))
+    def aes_ecb(key, data):
+        return AES.new(key[:16], AES.MODE_ECB).encrypt(data)
 
-    def aes_decrypt(key, data):
-        return _unpad(AES.new(key[:16], AES.MODE_ECB).decrypt(data))
+    def _ecb_decrypt(key, data):
+        return AES.new(key[:16], AES.MODE_ECB).decrypt(data)
+
+
+def aes_encrypt(key, data):
+    """AES-128-ECB + PKCS7 (старый протокол 2.2, только для тестов и совместимости)."""
+    return aes_ecb(key, _pad(data))
+
+
+def aes_decrypt(key, data):
+    return _unpad(_ecb_decrypt(key, data))
+
+
+def random_bytes(n):
+    return os.urandom(n)
+
+
+# ------------------------------------------------------------------ AES-128-GCM
+_R = 0xE1 << 120
+
+
+def _gf_mul(x, y):
+    """Умножение в GF(2^128) по NIST SP 800-38D (биты отражены)."""
+    z = 0
+    for i in range(127, -1, -1):
+        if (x >> i) & 1:
+            z ^= y
+        y = (y >> 1) ^ _R if y & 1 else y >> 1
+    return z
+
+
+def _ghash(h, aad, ct):
+    y = 0
+    for data in (aad, ct):
+        for i in range(0, len(data), 16):
+            block = data[i:i + 16]
+            if len(block) < 16:
+                block = block + bytes(16 - len(block))
+            y = _gf_mul(y ^ int.from_bytes(block, "big"), h)
+    lens = struct.pack(">QQ", len(aad) * 8, len(ct) * 8)
+    return _gf_mul(y ^ int.from_bytes(lens, "big"), h)
+
+
+def _gcm_core(key, nonce, data, aad):
+    """Общая часть: шифрование/расшифровка CTR и тег. nonce — 12 байт."""
+    h = int.from_bytes(aes_ecb(key, bytes(16)), "big")
+    j0 = nonce + bytes((0, 0, 0, 1))
+    n = (len(data) + 15) // 16
+    ctr = bytearray()
+    c = int.from_bytes(j0[12:], "big")
+    for i in range(n + 1):   # блок 0 — J0 для тега, дальше inc32(J0)
+        ctr += nonce + struct.pack(">I", (c + i) & 0xFFFFFFFF)
+    ks = aes_ecb(key, bytes(ctr))
+    out = bytes(a ^ b for a, b in zip(data, ks[16:]))
+    return out, ks[:16]
+
+
+def gcm_encrypt(key, nonce, plaintext, aad=b""):
+    """→ шифротекст, тег (16 байт)."""
+    ct, ek0 = _gcm_core(key, nonce, plaintext, aad)
+    s = _ghash(int.from_bytes(aes_ecb(key, bytes(16)), "big"), aad, ct)
+    tag = (s ^ int.from_bytes(ek0, "big")).to_bytes(16, "big")
+    return ct, tag
+
+
+def gcm_decrypt(key, nonce, ciphertext, tag, aad=b""):
+    """→ открытый текст; ValueError, если тег не сошёлся."""
+    s = _ghash(int.from_bytes(aes_ecb(key, bytes(16)), "big"), aad, ciphertext)
+    pt, ek0 = _gcm_core(key, nonce, ciphertext, aad)
+    if (s ^ int.from_bytes(ek0, "big")).to_bytes(16, "big") != bytes(tag):
+        raise ValueError("GCM: тег не совпал (чужой ключ или битые данные)")
+    return pt
 
 
 # ------------------------------------------------------------------ хеши, base64

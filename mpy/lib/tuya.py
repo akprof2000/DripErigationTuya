@@ -1,14 +1,17 @@
-"""tuya.py — подключение устройства к облаку Tuya по MQTT (протокол 2.2).
+"""tuya.py — подключение устройства к облаку Tuya так же, как это делает TuyaOpen SDK.
 
-Порт tuyalinksdk 0.0.3 (официальный Python SDK Tuya) без зависимостей: работает
-в MicroPython на ESP32 и в CPython (эмулятор). Лицензия — UUID + AuthKey
-(TuyaOpen License из консоли), продукт — PID.
+Лицензии TuyaOpen (UUID + AuthKey) принимаются облаком только от «OpenSDK»:
+активация thing.device.opensdk.active и протокол 2.3 (AES-128-GCM) — с запросом
+старого Python SDK (tuya.device.active, AES-ECB) облако отвечает
+ACTIVE_OPEN_SDK_NOT_MATCHED. Форматы взяты из TuyaOpen:
+src/tuya_cloud_service/cloud/{atop_base,atop_service,mqtt_service}.c и
+protocol/tuya_protocol.c. Работает в MicroPython (ESP32) и в CPython (эмулятор).
 
 Жизненный цикл (всё внутри loop(), главный цикл полива не блокируется дольше
 одного сетевого шага):
-  bind    — устройство не активировано: MQTT под acon_<uuid>, ждём токен,
+  bind    — устройство не активировано: MQTT под acon_<uuid>|pv=2.3, ждём токен,
             который облако присылает после сканирования QR в Smart Life;
-            токен → HTTPS tuya.device.active → devId/secKey/localKey во флеш
+            токен → HTTPS-активация → devId/secKey/localKey во флеш
   online  — MQTT под devId: принимаем DP (протокол 5), отправляем DP (4)
   wait    — связь потеряна: повтор через backoff (5 с … 5 мин)
 """
@@ -16,11 +19,13 @@ import binascii
 import json
 import struct
 
-from compat import (aes_encrypt, aes_decrypt, md5_hex, crc32, b64encode, b64decode,
-                    http_post, unix_time, ticks_ms, ticks_add, ticks_diff)
+from compat import (gcm_encrypt, gcm_decrypt, aes_decrypt, md5_hex, crc32, random_bytes,
+                    b64encode, b64decode, http_post, unix_time, ticks_ms, ticks_add, ticks_diff)
 from mqtt import MQTT
 
-PV = b"2.2"
+PV = b"2.3"
+BASELINE_VER = "40.07"          # TUYA_BSV
+DEV_ATTRIBUTE = 1 << 11         # ATTRIBUTE_OTA: устройство поддерживает OTA
 MQ_DPS_PUSH, MQ_DPS_ON, MQ_RESET, MQ_TOKEN = 4, 5, 11, 46
 IOTDNS = "https://h1.iot-dns.com/v1/url_config"
 
@@ -32,56 +37,64 @@ def _dumps(obj):
         return json.dumps(obj)
 
 
-# ---------------------------------------------------------------- кадр MQTT 2.2
+# ---------------------------------------------------------------- кадр MQTT 2.3
+# "2.3" | seq (4, BE) | from=1 (4, BE) | 0x00 | nonce (12) | GCM(JSON) | tag (16)
+# AAD — первые 12 байт (версия, seq, from, резерв); ключ — первые 16 байт ключа.
 def pack(key, seq, payload):
-    """'2.2' | crc32(seq,src,data) | seq | src=1 | AES-ECB(JSON)."""
-    data = aes_encrypt(key, _dumps(payload).encode())
-    ss = struct.pack("!II", seq, 1)
-    return PV + struct.pack("!I", crc32(ss + data) & 0xFFFFFFFF) + ss + data
+    head = PV + struct.pack(">II", seq, 1) + bytes(1)   # bytes(1) = 0x00, reserve
+    nonce = random_bytes(12)
+    ct, tag = gcm_encrypt(key[:16], nonce, _dumps(payload).encode(), head)
+    return head + nonce + ct + tag
 
 
 def unpack(key, frame):
-    """Кадр → (seq, dict). ValueError на чужой версии, битом CRC или ключе."""
-    if frame[:3] != PV:
-        raise ValueError("версия кадра %r" % frame[:3])
-    crc, seq = struct.unpack("!II", frame[3:11])
-    body = frame[7:]
-    if crc32(body) & 0xFFFFFFFF != crc:
-        raise ValueError("CRC")
-    data = frame[15:]
-    if len(data) % 16:
-        raise ValueError("длина")
-    return seq, json.loads(aes_decrypt(key, data))
+    """Кадр → (seq, dict). ValueError на чужой версии, битом теге или ключе."""
+    frame = bytes(frame)
+    pv = frame[:3]
+    if pv == PV:
+        if len(frame) < 40 or frame[11] != 0:
+            raise ValueError("кадр 2.3 повреждён")
+        seq = struct.unpack(">I", frame[3:7])[0]
+        data = gcm_decrypt(key[:16], frame[12:24], frame[24:-16], frame[-16:], frame[:12])
+        return seq, json.loads(data)
+    if pv == b"2.2":   # так облако отвечает клиенту, назвавшемуся без |pv=2.3
+        crc, seq = struct.unpack(">II", frame[3:11])
+        if crc32(frame[7:]) & 0xFFFFFFFF != crc:
+            raise ValueError("CRC")
+        return seq, json.loads(aes_decrypt(key[:16], frame[15:]))
+    raise ValueError("версия кадра %r" % pv)
 
 
 # ---------------------------------------------------------------- HTTPS (ATOP)
 def atop(url, api, ver, key, data, uuid=None, dev_id=None):
-    """Запрос к ATOP: подпись md5 по параметрам, тело — AES(JSON) в hex."""
+    """Запрос к ATOP (et=3): подпись md5 по параметрам, тело — GCM(JSON) в hex.
+
+    Возвращает поле result ответа; OSError, если облако ответило success=false.
+    """
     t = unix_time()
     params = [("a", api)]
     if dev_id:
         params.append(("devId", dev_id))
-    params += [("et", "1"), ("t", str(t))]
+    params += [("et", "3"), ("t", str(t))]
     if uuid:
         params.append(("uuid", uuid))
     params.append(("v", ver))
-    sign = md5_hex(("||".join("%s=%s" % p for p in params) + "||" + key).encode())
-    q = "&".join("%s=%s" % p for p in params) + "&sign=" + sign
+    sign = md5_hex(("".join("%s=%s||" % p for p in params) + key).encode())
+    q = "".join("%s=%s&" % p for p in params) + "sign=" + sign
     data["t"] = t
-    body = b"data=" + _hex_upper(aes_encrypt(key.encode(), _dumps(data).encode()))
+    k16 = key.encode()[:16]
+    nonce = random_bytes(12)
+    ct, tag = gcm_encrypt(k16, nonce, _dumps(data).encode())
+    body = b"data=" + binascii.hexlify(nonce + ct + tag).upper()
     r = http_post(url + "?" + q, body, {
         "User-Agent": "TUYA_IOT_SDK",
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"})
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"})
+    if isinstance(r.get("result"), str):      # обычно весь ответ зашифрован в result
+        raw = b64decode(r["result"])
+        r = json.loads(gcm_decrypt(k16, raw[:12], raw[12:-16], raw[-16:]))
     if not r.get("success"):
         raise OSError("ATOP %s: %s" % (api, r.get("errorCode") or r))
-    res = r.get("result")
-    if isinstance(res, str):
-        res = json.loads(aes_decrypt(key.encode(), b64decode(res)))
-    return res
-
-
-def _hex_upper(b):
-    return binascii.hexlify(b).upper()
+    return r.get("result")
 
 
 def endpoints(region=None, env="pro"):
@@ -157,7 +170,8 @@ class Tuya:
         ep = endpoints(self.st.get("region"), self.st.get("env", "pro"))
         self.ep = ep
         if not self.activated:
-            self.mq = MQTT(ep["mqtt"], ep["port"], "acon_" + self.uuid, "acon_" + self.uuid,
+            self.mq = MQTT(ep["mqtt"], ep["port"], "acon_" + self.uuid,
+                           "acon_%s|pv=%s" % (self.uuid, PV.decode()),
                            md5_hex(self.authkey.encode())[8:24])
             self.mq.on_message = self._on_bind_msg
             self.mq.connect()
@@ -165,7 +179,10 @@ class Tuya:
             self.state = "bind"
             self.log("tuya: ждём привязку, QR: " + self.qr_url())
             if self.on_qrcode:
-                self.on_qrcode(self.qr_url())
+                try:   # сбой показа QR — не повод рвать соединение
+                    self.on_qrcode(self.qr_url())
+                except Exception as e:
+                    self.log("tuya: on_qrcode: %s" % e)
         else:
             dev = self.st["devId"]
             self.mq = MQTT(ep["mqtt"], ep["port"], dev, dev, md5_hex(self.st["secKey"].encode())[8:24])
@@ -187,9 +204,10 @@ class Tuya:
         self.log("tuya: токен получен, регион " + str(d.get("region")))
         self.st["region"], self.st["env"] = d.get("region"), d.get("regist", "pro")
         ep = endpoints(self.st["region"], self.st["env"])
-        res = atop(ep["atop"], "tuya.device.active", "4.3", self.authkey, {
-            "token": d["token"], "productKey": self.pid, "softVer": self.version,
-            "protocolVer": PV.decode(), "baselineVer": "40.00", "options": '{"isFK":false}',
+        res = atop(ep["atop"], "thing.device.opensdk.active", "1.0", self.authkey, {
+            "token": d["token"], "softVer": self.version, "productKey": self.pid,
+            "protocolVer": PV.decode(), "baselineVer": BASELINE_VER,
+            "options": '{"otaChannel":0, "isFK":false}', "devAttribute": DEV_ATTRIBUTE,
             "cadVer": "1.0.3", "cdVer": "1.0.0"}, uuid=self.uuid)
         for k in ("devId", "secKey", "localKey"):
             self.st[k] = res[k]

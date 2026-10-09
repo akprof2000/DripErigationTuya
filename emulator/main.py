@@ -75,13 +75,12 @@ class Emulator:
     def connect(self, creds_path):
         # тот же клиент, что работает на ESP32 под MicroPython (mpy/lib/tuya.py)
         from tuya import Tuya
-        from tuyalinksdk.console_qrcode import qrcode_generate
 
         creds = json.loads(Path(creds_path).read_text(encoding="utf-8"))
         c = Tuya(creds["pid"], creds["uuid"], creds["authkey"], version=creds.get("version", "1.0.0"),
                  storage=str(HERE / "tuya_storage.json"), log=lambda m: log.info(m))
-        c.on_qrcode = lambda url: (print("\nОтсканируйте QR в Smart Life («+» → сканер):", url),
-                                   qrcode_generate(url))
+        c.on_qrcode = lambda url: print("\nОтсканируйте QR в Smart Life («+» → сканер):", url,
+                                        "\n(картинка: python tools/bind_qr.py)")
         c.on_connected = self._on_connected
         c.on_dps = self._on_dps
         c.on_reset = lambda: log.warning("облако: устройство удалено из приложения")
