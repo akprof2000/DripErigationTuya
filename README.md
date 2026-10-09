@@ -14,8 +14,11 @@
 ```
 spec/dp.json        единый список data points: от него работают эмулятор, панель и прошивка
 docs/dp.md          таблица DP и протокол мастеров (генерируется tools/gen_dp_doc.py)
-emulator/           эмулятор устройства на Python: логика прошивки и модель грядок
-panel/              панель Smart MiniApp (будет)
+mpy/lib/            прошивка на MicroPython: логика полива (device.py), DP (spec.py),
+                    клиент облака Tuya (tuya.py, mqtt.py); тот же код запускает эмулятор
+emulator/           эмулятор устройства: модель грядок и консоль вокруг mpy/lib
+panel/              панель Smart MiniApp на Ray
+firmware/drip_tuya/ заготовка TuyaOpen (C) — только чтобы у продукта была версия прошивки
 ```
 
 ## Эмулятор

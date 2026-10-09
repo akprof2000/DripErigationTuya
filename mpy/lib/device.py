@@ -12,11 +12,24 @@ valves.cpp, sensors.h/.cpp, objects.cpp, telegram.cpp). Где поведени�
 """
 import json
 import struct
-from collections import deque
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
 
 from spec import Spec
+
+
+def dumps(obj):
+    """Компактный JSON; в MicroPython нет ensure_ascii/indent, separators есть не везде."""
+    try:
+        return json.dumps(obj, separators=(",", ":"))
+    except TypeError:
+        return json.dumps(obj)
+
+
+def merge(d, **kw):
+    """{**d, **kw} — в MicroPython распаковки словаря в литерале нет."""
+    out = dict(d)
+    out.update(kw)
+    return out
+
 
 # ---- константы из прошивки (objects.h / timing.h) ----
 MODE_AUTO, MODE_ON, MODE_OFF, MODE_GREENHOUSE = "auto", "on", "off", "greenhouse"
@@ -35,45 +48,77 @@ FM_SETTLE_MIN = 3       # мин — упрощённо: столько мину
 FM_BAD_WINDOWS = 3      # подряд «плохих» минут для тревоги засора
 
 
-@dataclass
+CHANNEL_FIELDS = ("name", "border", "mode", "min_val", "max_val")
+CONFIG_FIELDS = ("run_on_rain", "run_on_night", "delta_calib", "delta_hum", "boost_pump_valves",
+                 "utime_all_closed", "flow_session", "flow_total", "clean_flow_per_valve",
+                 "clog_threshold", "flow_monitor", "autocal_no_delay")
+
+
 class Channel:
-    # название грядки живёт в облачных свойствах устройства (его хранит панель);
-    # здесь — только для консоли эмулятора
-    name: str = "🌱 Растение"
-    border: int = 60
-    mode: str = MODE_AUTO
-    min_val: int = 1024
-    max_val: int = 1024
+    def __init__(self, name="🌱 Растение", border=60, mode=MODE_AUTO, min_val=1024, max_val=1024):
+        # название грядки живёт в облачных свойствах устройства (его хранит панель);
+        # здесь — только для консоли эмулятора
+        self.name = name
+        self.border = border
+        self.mode = mode
+        self.min_val = min_val
+        self.max_val = max_val
 
 
-@dataclass
 class Config:
-    """Аналог struct Config (objects.h) — то, что прошивка хранит на SD."""
-    run_on_rain: bool = True
-    run_on_night: bool = False
-    delta_calib: int = 15
-    delta_hum: int = 5
-    boost_pump_valves: int = 9
-    channels: list = field(default_factory=lambda: [Channel() for _ in range(8)])
-    utime_all_closed: int = 0
-    flow_session: float = 0.0
-    flow_total: float = 0.0
-    clean_flow_per_valve: float = 0.0
-    clog_threshold: int = 50
-    flow_monitor: bool = True
-    autocal_no_delay: bool = False
+    """Аналог struct Config (objects.h) — то, что прошивка хранит на SD/флеше."""
+
+    def __init__(self):
+        self.run_on_rain = True
+        self.run_on_night = False
+        self.delta_calib = 15
+        self.delta_hum = 5
+        self.boost_pump_valves = 9
+        self.channels = [Channel() for _ in range(8)]
+        self.utime_all_closed = 0
+        self.flow_session = 0.0
+        self.flow_total = 0.0
+        self.clean_flow_per_valve = 0.0
+        self.clog_threshold = 50
+        self.flow_monitor = True
+        self.autocal_no_delay = False
+
+    def to_dict(self):
+        d = {k: getattr(self, k) for k in CONFIG_FIELDS}
+        d["channels"] = [{k: getattr(c, k) for k in CHANNEL_FIELDS} for c in self.channels]
+        return d
 
     @staticmethod
     def load(path):
+        cfg = Config()
         try:
-            d = json.loads(Path(path).read_text(encoding="utf-8"))
-            d["channels"] = [Channel(**c) for c in d["channels"]]
-            return Config(**d)
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            for k in CONFIG_FIELDS:
+                if k in d:
+                    setattr(cfg, k, d[k])
+            for c, dc in zip(cfg.channels, d.get("channels", [])):
+                for k in CHANNEL_FIELDS:
+                    if k in dc:
+                        setattr(c, k, dc[k])
         except (OSError, ValueError, TypeError, KeyError):
             return Config()
+        return cfg
 
     def save(self, path):
-        Path(path).write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2), encoding="utf-8")
+        # сначала во временный файл: сбой питания посреди записи не убьёт настройки
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(dumps(self.to_dict()))
+        try:
+            import os
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            os.rename(tmp, path)
+        except OSError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +154,7 @@ class Device:
         self.world = world
         self.state_path = state_path
         self.cfg = Config.load(state_path) if state_path else Config()
-        self.events = deque()
+        self.events = []
         self.hw_faults = set()          # rtc | sd | valves — как faults.h
         self._last_report = {}
         self.reboot(initial=True)
@@ -158,7 +203,7 @@ class Device:
     def event(self, code, **fields):
         """Событие для DP event: JSON с кодом, без текста. Текст, названия грядок
         и перевод подставляет панель — так событие всегда влезает в 255 байт."""
-        self.events.append(json.dumps({"t": code, **fields}, separators=(",", ":")))
+        self.events.append(dumps(merge({"t": code}, **fields)))
 
     # =====================================================================
     # sensors.cpp / sensors.h
@@ -448,7 +493,7 @@ class Device:
         elif code == "wizard":
             self._wizard(value)
         else:
-            raise ValueError(f"DP {code} не обрабатывается")
+            raise ValueError("DP %s не обрабатывается" % code)
 
     def _command(self, cmd, now, unix):
         if cmd == "restart":
@@ -517,12 +562,12 @@ class Device:
                 i = w["ch"] - 1
                 self.read_all()
                 self.low[i] = self.curr[i]
-                self._wz({**w, "step": "dry", "wet": self.low[i]})
+                self._wz(merge(w, step="dry", wet=self.low[i]))
             elif w.get("op") == "calib" and step == "next" and w["step"] == "dry":
                 i = w["ch"] - 1
                 self.read_all()
                 self.high[i] = self.curr[i]
-                self._wz({**w, "step": "finish", "dry": self.high[i]})
+                self._wz(merge(w, step="finish", dry=self.high[i]))
             elif w.get("op") == "calib" and step == "finish" and w["step"] == "finish":
                 i = w["ch"] - 1
                 if abs(self.high[i] - self.low[i]) < CALIB_MIN_SPAN:
@@ -534,7 +579,7 @@ class Device:
                     self._wz({"op": "calib", "ch": w["ch"], "step": "done", "ok": True,
                               "min": self.low[i], "max": self.high[i]})
             else:
-                self._wz({**w, "err": "bad_step"})
+                self._wz(merge(w, err="bad_step"))
             return
 
         if op == "search":
@@ -553,7 +598,7 @@ class Device:
                 else:
                     self._wz({"op": "search", "step": "done", "ok": True, "found": found + 1})
             else:
-                self._wz({**w, "err": "bad_step"})
+                self._wz(merge(w, err="bad_step"))
             return
 
         self._wz({"op": "error", "err": "unknown_op"})
@@ -580,17 +625,17 @@ class Device:
             "boost_pump_valves": self.cfg.boost_pump_valves,
             "clog_threshold": self.cfg.clog_threshold, "flow_monitor": self.cfg.flow_monitor,
             "autocal_no_delay": self.cfg.autocal_no_delay,
-            "wizard_state": json.dumps(self.wizard, ensure_ascii=False),
+            "wizard_state": dumps(self.wizard),
             "adc_raw": struct.pack(">" + "H" * (3 * self.n),
                                    *[v for i in range(self.n) for v in (self.curr[i], self.low[i], self.high[i])]),
         }
         for i in range(self.n):
             n = i + 1
             c = self.cfg.channels[i]
-            out[f"humidity_{n}"] = self.percent(i)
-            out[f"valve_{n}"] = self.old_mode[i]
-            out[f"mode_{n}"] = c.mode
-            out[f"border_{n}"] = c.border
+            out["humidity_%d" % n] = self.percent(i)
+            out["valve_%d" % n] = self.old_mode[i]
+            out["mode_%d" % n] = c.mode
+            out["border_%d" % n] = c.border
         return {k: s.encode(k, v) for k, v in out.items()}
 
     def report(self, full=False):
@@ -604,5 +649,5 @@ class Device:
         self._last_report = snap
         packets = [changed] if changed else []
         while self.events:
-            packets.append({"event": self.spec.encode("event", self.events.popleft())})
+            packets.append({"event": self.spec.encode("event", self.events.pop(0))})
         return packets

@@ -15,12 +15,12 @@ import shlex
 import sys
 import threading
 import time
-from base64 import b64encode
 from pathlib import Path
 
-from device import Device
-from spec import Spec
-from world import World, ADC_WET, ADC_DRY
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mpy" / "lib"))
+from device import Device  # noqa: E402
+from spec import Spec  # noqa: E402
+from world import World, ADC_WET, ADC_DRY  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 log = logging.getLogger("emu")
@@ -52,7 +52,7 @@ class Emulator:
         self.world = World(self.spec.channels)
         state = HERE / args.state
         fresh = not state.exists()
-        self.dev = Device(self.world, state_path=state, spec=self.spec)
+        self.dev = Device(self.world, state_path=str(state), spec=self.spec)
         if fresh:
             # 🔧 новый «прибор» сразу откалиброван под модель мира, чтобы панель
             #    показывала правдоподобные проценты, а не 0 % на всех каналах
@@ -73,21 +73,27 @@ class Emulator:
 
     # ------------------------------------------------------------ облако
     def connect(self, creds_path):
-        from tuyalinksdk.client import TuyaClient
+        # тот же клиент, что работает на ESP32 под MicroPython (mpy/lib/tuya.py)
+        from tuya import Tuya
         from tuyalinksdk.console_qrcode import qrcode_generate
 
         creds = json.loads(Path(creds_path).read_text(encoding="utf-8"))
-        c = TuyaClient(productid=creds["pid"], uuid=creds["uuid"], authkey=creds["authkey"],
-                       version=creds.get("version", "1.0.0"),
-                       storage_path=str(HERE / "tuya_storage.json"))
-        c.on_qrcode = lambda url: (print("\nОтсканируйте QR в Smart Life («+» → сканер):", url), qrcode_generate(url))
+        c = Tuya(creds["pid"], creds["uuid"], creds["authkey"], version=creds.get("version", "1.0.0"),
+                 storage=str(HERE / "tuya_storage.json"), log=lambda m: log.info(m))
+        c.on_qrcode = lambda url: (print("\nОтсканируйте QR в Smart Life («+» → сканер):", url),
+                                   qrcode_generate(url))
         c.on_connected = self._on_connected
-        c.on_disconnect = lambda: log.warning("облако: связь потеряна")
         c.on_dps = self._on_dps
-        c.on_reset = lambda data: log.warning("облако: устройство удалено из приложения %s", data)
+        c.on_reset = lambda: log.warning("облако: устройство удалено из приложения")
         self.client = c
-        c.connect()
-        c.loop_start()
+        threading.Thread(target=self.cloud_loop, daemon=True).start()
+
+    def cloud_loop(self):
+        # без self.lock: подключение может идти секундами, а консоль и модель
+        # должны работать; колбэки клиента сами берут lock
+        while self.running:
+            self.client.loop()
+            time.sleep(0.05)
 
     def _on_connected(self):
         log.info("облако: подключено")
@@ -117,16 +123,9 @@ class Emulator:
                 shown = {k: (v.hex() if isinstance(v, bytes) else v) for k, v in packet.items()}
                 print("→", shown if "event" not in packet else self.event_text(packet["event"]))
             return
-        dps = {}
-        for code, v in packet.items():
-            dp_id = self.spec.by_code[code].id
-            if isinstance(v, bytes):
-                self.client.push_dp_raw(dp_id, v)
-            else:
-                dps[str(dp_id)] = v
-        if dps:
-            self.client.push_dps(dps)
-        log.debug("→ облако: %s", dps)
+        dps = {self.spec.by_code[code].id: v for code, v in packet.items()}
+        if self.client.push(dps):
+            log.debug("→ облако: %s", dps)
 
     def event_text(self, raw):
         """Человекочитаемое событие для консоли (так же будет рисовать панель)."""
@@ -235,9 +234,6 @@ def main():
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(name)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
-    if not args.verbose:
-        for name in ("TuyaClient", "TuyaMQTT", "ATOP"):
-            logging.getLogger(name).setLevel(logging.WARNING)
 
     emu = Emulator(args)
     if not args.offline:

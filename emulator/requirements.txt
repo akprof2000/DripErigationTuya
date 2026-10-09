@@ -1,4 +1,4 @@
-# Официальный Python SDK устройства Tuya (MIT): github.com/tuya/tuyaos-link-sdk-python
+# Официальный Python SDK устройства Tuya (MIT): эталон для тестов mpy/lib/tuya.py и QR в консоли
 tuyalinksdk==0.0.3
 # SDK написан под API paho-mqtt 1.x (в 2.0 поменялись сигнатуры колбэков)
 paho-mqtt>=1.5.1,<2

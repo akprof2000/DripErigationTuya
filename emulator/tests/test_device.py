@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mpy" / "lib"))
 
 from device import Device, decide_valve, arduino_map, PUMP_TIMEOUT  # noqa: E402
 from spec import Spec  # noqa: E402
