@@ -11,7 +11,6 @@ static const char* STATE = "/state.json";
 static const char* PENDING_PATH = "/pending.jsonl";
 
 static App* s_app = nullptr;
-static void ledBlink(bool on) { digitalWrite(pins::LED, on ? HIGH : LOW); }
 
 bool App::loadCreds(String& pid, String& uuid, String& authkey) {
   JsonDocument doc;
@@ -33,11 +32,8 @@ void App::setup() {
   _clock.begin();
   _wifi.begin();
 
-  // 📡 без сохранённой сети или с зажатой кнопкой — портал настройки, потом перезагрузка
-  if (!_wifi.hasConfig() || _hw.buttonPressed()) {
-    _wifi.portal(ledBlink);
-    ESP.restart();
-  }
+  // 📡 без сохранённой сети или с зажатой кнопкой — портал настройки (полив при этом работает)
+  if (!_wifi.hasConfig() || _hw.buttonPressed()) _wifi.startPortal();
   _wifi.connect();
 
   _cfg.load(dataFs(), STATE);
@@ -75,6 +71,12 @@ void App::loop() {
   _upSec++;
 
   bool up = _wifi.tick();
+  if (_wifi.portalSaved()) {   // в портале сохранили сеть — перезагружаемся на неё
+    LOG_I("wifi: сеть сохранена, перезагрузка");
+    delay(500);
+    shutdown();
+    ESP.restart();
+  }
   if (up) {
     if (!_ntpStarted) { _ntpStarted = true; _clock.startNtp(); }
     _clock.tick();
@@ -211,11 +213,9 @@ void App::shutdown() {
 void App::tickButton() {
   if (_hw.buttonPressed()) {
     if (_buttonSince == 0) _buttonSince = millis();
-    else if (millis() - _buttonSince > BUTTON_PORTAL_MS) {
+    else if (millis() - _buttonSince > BUTTON_PORTAL_MS && !_wifi.portalActive()) {
       LOG_I("кнопка: портал настройки Wi-Fi");
-      shutdown();
-      _wifi.portal(ledBlink);
-      ESP.restart();
+      _wifi.startPortal();
     }
   } else {
     _buttonSince = 0;
@@ -225,7 +225,8 @@ void App::tickButton() {
 // 💡 горит — на связи с облаком; мигает раз в секунду — Wi-Fi есть, облака нет; частое — нет Wi-Fi
 void App::tickLed(bool wifiUp) {
   bool online = _tuya && _tuya->online();
-  if (online) _ledOn = true;
+  if (_wifi.portalActive()) _ledOn = (_upSec % 4) < 2;   // портал: длинные вспышки
+  else if (online) _ledOn = true;
   else if (wifiUp) _ledOn = !_ledOn;
   else _ledOn = (_upSec % 2) == 0;
   _hw.led(_ledOn);
