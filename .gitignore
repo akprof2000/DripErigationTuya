@@ -11,3 +11,4 @@ emulator/bind_qr.png
 panel/typings/tuya*/
 emulator/pending.jsonl
 emulator/cmd.txt
+firmware/dist/

@@ -10,9 +10,13 @@ import hashlib
 import json
 import os
 import socket
-import ssl
 import struct
 import time
+
+try:
+    import ssl
+except ImportError:   # unix-порт MicroPython без TLS: тесты логики без сети
+    ssl = None
 
 try:
     from cryptolib import aes as _mp_aes   # MicroPython

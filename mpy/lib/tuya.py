@@ -122,6 +122,7 @@ class Tuya:
         self.on_connected = None        # f() — пора отправить полный снимок DP
         self.on_qrcode = None           # f(url) — показать QR привязки
         self.on_reset = None            # f() — устройство удалили из приложения
+        self.on_protocol = None         # f(protocol_id, data) — прочие сообщения облака (OTA и т. п.)
 
     # ---------------- хранилище
     def _load(self):
@@ -239,6 +240,8 @@ class Tuya:
         proto = msg.get("protocol")
         if proto == MQ_DPS_ON and self.on_dps:
             self.on_dps(msg.get("data", {}).get("dps", {}))
+        elif proto not in (MQ_DPS_ON, MQ_RESET) and self.on_protocol:
+            self.on_protocol(proto, msg.get("data"))
         elif proto == MQ_RESET:
             self.log("tuya: устройство удалено из приложения")
             for k in ("devId", "secKey", "localKey"):
@@ -250,6 +253,24 @@ class Tuya:
             self._retry_at = ticks_ms()
             if self.on_reset:
                 self.on_reset()
+
+    def publish(self, protocol, data):
+        """Произвольное сообщение устройство → облако (например, прогресс OTA, протокол 16)."""
+        if not self.online:
+            return False
+        self.seq += 1
+        frame = pack(self.st["localKey"].encode(), self.seq,
+                     {"protocol": protocol, "t": unix_time(), "data": data})
+        try:
+            self.mq.publish("smart/device/out/" + self.st["devId"], frame)
+        except Exception as e:
+            self._fail(e)
+            return False
+        return True
+
+    def atop_dev(self, api, ver, data):
+        """HTTPS-запрос ATOP от имени активированного устройства (devId + secKey)."""
+        return atop(self.ep["atop"], api, ver, self.st["secKey"], data, dev_id=self.st["devId"])
 
     def push(self, dps, t=None):
         """dps: {id: value}; bytes (raw-DP) уходят в base64. False, если не онлайн.

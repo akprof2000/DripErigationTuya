@@ -24,6 +24,8 @@ class World:
         self.place = ["soil"] * channels
         self.open_valves = [False] * channels
         self.drain_on = False
+        self.pump_on = False        # ⚡ реле насоса (в модели воды не участвует: поток считает device по pump)
+        self.fill_on = False        # 🚰 клапан заливки бака
         self.rain = False
         self.night = False
         self.auto_daynight = True   # 🌗 смена дня и ночи по часам эмулятора

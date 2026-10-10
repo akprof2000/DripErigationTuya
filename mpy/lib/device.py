@@ -200,6 +200,8 @@ class Device:
         self.last_minute = None
         self.world.open_valves = [False] * self.n
         self.world.drain_on = False
+        self.world.pump_on = False
+        self.world.fill_on = False
         if not initial:
             self.event("reboot")
 
@@ -278,6 +280,7 @@ class Device:
     def _set_pump(self, on):
         if on != self.pump:
             self.pump = on
+            self.world.pump_on = on          # реле насоса (на плате — GPIO)
 
     def pump_state(self):
         """DP pump_state: off | start (пусковые 30 с) | valves (по порогу) | drain (пролив)."""
@@ -344,6 +347,7 @@ class Device:
             self.world.open_valves[i] = False
             self.is_close[i] = True
         self.world.drain_on = False
+        self.world.fill_on = False
         self.drain_active = self.fill_active = False
         self._set_pump(False)
 
@@ -367,6 +371,7 @@ class Device:
             return
         self.fill_active = True
         self.fill_start = now
+        self.world.fill_on = True
         self.event("tank_fill")
 
     def check_weather(self, now):
@@ -474,6 +479,7 @@ class Device:
         # ⏱️ неблокирующие таймеры
         if self.fill_active and now - self.fill_start >= FILLING_WAIT:
             self.fill_active = False
+            self.world.fill_on = False
         self.spillage_tick(now)
         if self.pump_start is not None and now - self.pump_start > PUMP_TIMEOUT:
             self.pump_start = None
@@ -482,11 +488,21 @@ class Device:
         if self.boot_unix is None:
             self.boot_unix = unix
 
-        # 💧 расходомер: в прошивке — импульсы с датчика, здесь — из модели мира
-        self.flow_rate = self.world.flow_lpm() if self.pump else 0.0
-        self.flow_session += self.flow_rate * dt / 60.0
-        pulses = int(self.flow_rate * dt / 60.0 * PULSES_PER_LITER)
-        if pulses > 0 and getattr(self.world, "flow_sensor_ok", True):
+        # 💧 расходомер. На плате (hw.py) импульсы считает прерывание: take_pulses()
+        #    отдаёт накопленное с прошлого тика, flow_lpm() — мгновенную скорость.
+        #    В эмуляторе импульсов нет — их даёт модель мира из скорости потока.
+        take = getattr(self.world, "take_pulses", None)
+        if take is not None:
+            pulses = take()
+            self.flow_rate = self.world.flow_lpm()
+            self.flow_session += pulses / PULSES_PER_LITER
+        else:
+            self.flow_rate = self.world.flow_lpm() if self.pump else 0.0
+            self.flow_session += self.flow_rate * dt / 60.0
+            pulses = int(self.flow_rate * dt / 60.0 * PULSES_PER_LITER)
+            if not getattr(self.world, "flow_sensor_ok", True):
+                pulses = 0
+        if pulses > 0:
             self.flow_pulses += pulses
             self.last_pulse_at = unix
 
