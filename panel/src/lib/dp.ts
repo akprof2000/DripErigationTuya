@@ -62,6 +62,8 @@ export function eventText(e: DeviceEvent, names: string[]) {
     }
     case 'clog':
       return t('ev_clog', e.r ?? 0, e.e ?? 0);
+    case 'clog_end':
+      return t('ev_clog_end', e.r ?? 0);
     case 'hw_fault':
       return t('ev_hw_fault', (e.f ?? []).map(x => t(`hw_${x}`)).join(', '));
     default:

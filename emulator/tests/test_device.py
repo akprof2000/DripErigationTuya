@@ -164,18 +164,32 @@ class DeviceTest(unittest.TestCase):
         self.assertEqual(d.wizard["found"], 6)
 
     def test_filter_clog_alarm(self):
+        # алгоритм objects.cpp: ≥10 мин стабилизации, окна по 2 мин, эталон
+        # подтверждается 5 мин, засор — 3 плохих окна подряд
         w, d = make()
         w.soil = [0.05] + [0.95] * 7
+        w.dry_rate = 0.0                     # грядка не «высыхает» и не «намокает» — клапан держит
+        w.wet_rate = 0.0
+        w.valve_lpm = 0.5                    # 0.5 л/мин ≈ 3.75 имп/с — хватает на MIN_PULSES за окно
         d.cfg.boost_pump_valves = 1          # насос держит поток, пока открыт клапан
         c = Clock(d)
-        c.run(6 * 60)
-        self.assertGreater(d.cfg.clean_flow_per_valve, 0)
-        w.clog = 0.3
-        w.soil[0] = 0.05
+        c.run(25 * 60)
+        self.assertAlmostEqual(d.cfg.clean_flow_per_valve, 0.5, delta=0.05)
+        self.assertFalse(d.clogged)
+        w.clog = 0.3                         # поток 30 % от нормы (порог 50 %)
+        c.run(8 * 60)
+        self.assertTrue(d.clogged)
+        self.assertIn("clog", [json.loads(e)["t"] for e in d.events])
+        w.clog = 1.0
         c.run(5 * 60)
+        self.assertFalse(d.clogged)          # поток вернулся — тревога снята
+        self.assertIn("clog_end", [json.loads(e)["t"] for e in d.events])
+        w.clog = 0.3
+        c.run(8 * 60)
         self.assertTrue(d.clogged)
         d.apply_dp("command", "filter_cleaned", c.now, c.unix)
         self.assertFalse(d.clogged)
+        self.assertEqual(d.cfg.clean_flow_per_valve, 0.0)
 
     def test_report_diff_and_events(self):
         w, d = make()

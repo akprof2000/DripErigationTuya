@@ -2,9 +2,8 @@
 
 Источник: DripIrrigation-Cloud/DripIrrigation (irrigation.cpp, DripIrrigation.ino,
 valves.cpp, sensors.h/.cpp, objects.cpp, telegram.cpp). Где поведение повторено
-1:1, в комментарии указана исходная функция. Контроль засора фильтра упрощён
-(см. _filter_minute): для отладки панели важны сами состояния, а не точная
-статистика окон.
+1:1, в комментарии указана исходная функция. Контроль засора фильтра —
+flowmon.py (порт objects.cpp, fm*).
 
 Уведомления, которые прошивка слала в Telegram, здесь становятся событиями
 (DP event, JSON с кодом — см. docs/dp.md). Диалоги бота (калибровка, поиск датчика) стали «мастерами»:
@@ -13,6 +12,7 @@ valves.cpp, sensors.h/.cpp, objects.cpp, telegram.cpp). Где поведени�
 import json
 import struct
 
+from flowmon import FlowMonitor
 from spec import Spec
 
 
@@ -47,14 +47,12 @@ SEARCH_DELTA = 300      # АЦП — порог «этот датчик выну
 CALIB_MIN_SPAN = 100    # АЦП — минимальный размах калибровки (telegram.cpp, CalibFinish)
 
 FLOW_SILENCE_MIN = 2    # мин — насос работает, клапаны открыты, импульсов нет → «расходомер молчит»
-FM_SETTLE_MIN = 3       # мин — упрощённо: столько минут клапаны не менялись → поток стабилен
-FM_BAD_WINDOWS = 3      # подряд «плохих» минут для тревоги засора
 
 
 CHANNEL_FIELDS = ("name", "border", "mode", "min_val", "max_val")
 CONFIG_FIELDS = ("run_on_rain", "run_on_night", "delta_calib", "delta_hum", "boost_pump_valves",
                  "utime_all_closed", "flow_session", "flow_total", "clean_flow_per_valve",
-                 "clog_threshold", "flow_monitor", "autocal_no_delay")
+                 "clean_flow_drain", "clog_threshold", "flow_monitor", "autocal_no_delay")
 
 
 class Channel:
@@ -82,6 +80,7 @@ class Config:
         self.flow_session = 0.0
         self.flow_total = 0.0
         self.clean_flow_per_valve = 0.0
+        self.clean_flow_drain = 0.0
         self.clog_threshold = 50
         self.flow_monitor = True
         self.autocal_no_delay = False
@@ -186,10 +185,9 @@ class Device:
         self.old_rmode = self.old_nmode = False
         self.flow_session = self.cfg.flow_session
         self.flow_rate = 0.0
-        self.clogged = False
-        self.fm_bad = 0
-        self.fm_stable_min = 0
-        self.flow_pulses = 0             # импульсов расходомера с включения
+        self.fm = FlowMonitor(self.cfg)
+        self.flow_pulses = 0
+        self._pulse_frac = 0.0             # импульсов расходомера с включения
         self.last_pulse_at = None        # unix последнего импульса
         self.flow_silent = False         # тревога «расходомер молчит»
         self._silent_min = 0
@@ -204,6 +202,10 @@ class Device:
         self.world.fill_on = False
         if not initial:
             self.event("reboot")
+
+    @property
+    def clogged(self):
+        return self.fm.alert
 
     def save(self):
         self.cfg.flow_session = self.flow_session
@@ -427,30 +429,6 @@ class Device:
                     self.old_mode[i] = V_FORCED_CLOSE
                     self.event("valve", ch=i + 1, s=V_FORCED_CLOSE, w=1)
 
-    # ---- контроль засора фильтра (упрощённая модель objects.cpp) ----
-    def _filter_minute(self, valves_changed):
-        opened = self.count_open()
-        if not self.cfg.flow_monitor or opened == 0 or self.drain_active:
-            self.fm_stable_min = 0
-            self.fm_bad = 0
-            return
-        self.fm_stable_min = 0 if valves_changed else self.fm_stable_min + 1
-        if self.fm_stable_min < FM_SETTLE_MIN:
-            return
-        per_valve = self.flow_rate / opened
-        if per_valve > self.cfg.clean_flow_per_valve:
-            if self.cfg.clean_flow_per_valve == 0 or not self.clogged:
-                self.cfg.clean_flow_per_valve = per_valve   # авто-максимум эталона
-                self.save()
-        expected = self.cfg.clean_flow_per_valve * opened
-        if self.flow_rate < expected * self.cfg.clog_threshold / 100:
-            self.fm_bad += 1
-            if self.fm_bad >= FM_BAD_WINDOWS and not self.clogged:
-                self.clogged = True
-                self.event("clog", r=round(self.flow_rate, 3), e=round(expected, 3))
-        else:
-            self.fm_bad = 0
-
     def _flow_silence_minute(self, unix):
         """Насос работает, клапаны открыты, а импульсов нет FLOW_SILENCE_MIN минут —
         датчик залип или забит. Событие один раз, второе — когда импульсы вернулись."""
@@ -499,22 +477,33 @@ class Device:
         else:
             self.flow_rate = self.world.flow_lpm() if self.pump else 0.0
             self.flow_session += self.flow_rate * dt / 60.0
-            pulses = int(self.flow_rate * dt / 60.0 * PULSES_PER_LITER)
+            self._pulse_frac += self.flow_rate * dt / 60.0 * PULSES_PER_LITER
+            pulses = int(self._pulse_frac)
+            self._pulse_frac -= pulses
             if not getattr(self.world, "flow_sensor_ok", True):
                 pulses = 0
         if pulses > 0:
             self.flow_pulses += pulses
             self.last_pulse_at = unix
 
+        # 🧽 контроль засора фильтра — каждую секунду, по счётчику импульсов
+        for ev in self.fm.tick(now, self.flow_pulses, self.count_open(), self.drain_active,
+                               self.pump_start is not None, self.fill_active):
+            if ev[0] == "clog":
+                self.event("clog", r=round(ev[1], 3), e=round(ev[2], 3))
+            else:
+                self.event("clog_end", r=round(ev[1], 3))
+        if self.fm.dirty:
+            self.fm.dirty = False
+            self.save()
+
         minute = int(unix // 60)
         if minute != self.last_minute:
             self.last_minute = minute
-            before = list(self.is_close)
             self.world.step_minute(minute % 1440)
             self.read_all()
             self.auto_calibrate_bounds()
             self.control_valves(self.check_weather(now), now, unix)
-            self._filter_minute(before != self.is_close)
             self._flow_silence_minute(unix)
             self.cfg.flow_session = self.flow_session
 
@@ -559,6 +548,7 @@ class Device:
             # telegram.cpp, Dlg::Reset — те же значения по умолчанию
             keep = (self.cfg.flow_total, self.cfg.flow_session, self.cfg.utime_all_closed)
             self.cfg = Config()
+            self.fm = FlowMonitor(self.cfg)
             self.cfg.flow_total, self.cfg.flow_session, self.cfg.utime_all_closed = keep
             for i in range(self.n):
                 self.set_low_high(i, 1024, 1024)
@@ -570,9 +560,8 @@ class Device:
             self.save()
             self.event("clear_flow")
         elif cmd == "filter_cleaned":
-            self.cfg.clean_flow_per_valve = 0.0
-            self.clogged = False
-            self.fm_bad = 0
+            self.fm.recalibrate()
+            self.fm.dirty = False
             self.save()
             self.event("filter_cleaned")
         elif cmd == "drain":
@@ -691,7 +680,7 @@ class Device:
             "drain": self.drain_active, "fill": self.fill_active,
             "flow_rate": self.flow_rate, "flow_session": self.flow_session,
             "flow_total": self.cfg.flow_total,
-            "fault": s.bitmap("fault", self.hw_faults | ({"filter_clog"} if self.clogged else set())),
+            "fault": s.bitmap("fault", self.hw_faults | ({"filter_clog"} if self.fm.alert else set())),
             "filter_baseline": self.cfg.clean_flow_per_valve,
             "run_on_rain": self.cfg.run_on_rain, "run_on_night": self.cfg.run_on_night,
             "delta_hum": self.cfg.delta_hum, "delta_calib": self.cfg.delta_calib,
