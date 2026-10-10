@@ -63,6 +63,7 @@ class Hardware:
         self._adc.atten(ADC.ATTN_11DB)                             # 0..3.3 В → 0..4095
         self.i2c = I2C(0, scl=Pin(PIN_SCL), sda=Pin(PIN_SDA), freq=100000)
         self._pcf_ok = False
+        self._last_raw = [None] * channels
         self._valves = _Relays(self, [False] * channels)
         self.flow_sensor_ok = True
         self.step_minute = lambda minute: None                     # физики нет — это реальный мир
@@ -142,7 +143,17 @@ class Hardware:
             s.append(self._adc.read())
             time.sleep_us(200)
         s.sort()
+        self._last_raw[ch] = s[4]
         return s[4]
+
+    @property
+    def sensors_ok(self):
+        """Датчики, похоже, подключены: хоть один канал не упёрся в край шкалы АЦП."""
+        return any(20 < v < 4075 for v in self._last_raw if v is not None)
+
+    @property
+    def pcf_ok(self):
+        return self._pcf_ok
 
     def button_pressed(self):
         return self.button.value() == 1

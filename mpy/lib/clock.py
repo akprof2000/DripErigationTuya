@@ -98,4 +98,5 @@ class Clock:
         return unix_time()
 
     def faults(self):
-        return set() if (self.rtc is None or self.rtc_ok) else {"rtc"}
+        """Блокирующая авария — только когда время неизвестно совсем (ни DS3231, ни NTP)."""
+        return set() if self.ok else {"rtc"}

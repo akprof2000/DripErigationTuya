@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mpy" / "lib"))
 
-from device import Device, PUMP_TIMEOUT, DRAIN_TIMEOUT  # noqa: E402
+from device import Device, PUMP_TIMEOUT, DRAIN_TIMEOUT, FW_VERSION  # noqa: E402
 from outbox import Outbox  # noqa: E402
 from spec import Spec  # noqa: E402
 from world import World, ADC_WET, ADC_DRY  # noqa: E402
@@ -82,7 +82,7 @@ class FlowSensorTest(unittest.TestCase):
         c.run(60 * 2)
         self.assertIn("flow_ok", events(d))
         info = json.loads(d.sys_info(c.unix, {"heap": 1, "pending": 2}))
-        self.assertEqual(info["fw"], "1.0.0")
+        self.assertEqual(info["fw"], FW_VERSION)
         self.assertGreater(info["up"], 0)
         self.assertEqual(info["pending"], 2)
         self.assertGreaterEqual(info["last_pulse"], 0)

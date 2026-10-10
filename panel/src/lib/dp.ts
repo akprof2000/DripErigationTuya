@@ -92,10 +92,22 @@ export type SysInfo = {
   t?: number;
   rtc?: number;
   sd?: number;
+  valves?: number;
+  sensors?: number;
   pulses?: number;
   last_pulse?: number;
   pending?: number;
 };
+
+/** Периферия, которой нет (по sys_info): ключи для t(`hw_${k}`). */
+export function missingPeriph(sys: SysInfo): string[] {
+  const out: string[] = [];
+  if (sys.valves === 0) out.push('valves');
+  if (sys.sensors === 0) out.push('sensors');
+  if (sys.rtc === 0) out.push('rtc');
+  if (sys.sd === 0) out.push('sd');
+  return out;
+}
 
 export function parseSysInfo(raw: string | undefined): SysInfo {
   try {

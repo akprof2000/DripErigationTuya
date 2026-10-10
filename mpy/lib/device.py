@@ -32,7 +32,7 @@ def merge(d, **kw):
 
 
 # ---- константы из прошивки (objects.h / timing.h) ----
-FW_VERSION = "1.0.0"    # версия прошивки — уходит в sys_info и в активацию Tuya (softVer)
+FW_VERSION = "1.0.1"    # версия прошивки — уходит в sys_info и в активацию Tuya (softVer)
 MODE_AUTO, MODE_ON, MODE_OFF, MODE_GREENHOUSE = "auto", "on", "off", "greenhouse"
 V_INIT, V_OPEN_HUM, V_CLOSE_HUM, V_HYST, V_FORCED_OPEN, V_FORCED_CLOSE = (
     "init", "open_hum", "close_hum", "hyst", "forced_open", "forced_close")

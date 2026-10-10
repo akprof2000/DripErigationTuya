@@ -121,7 +121,10 @@ class App:
 
     def _sys_info(self):
         extra = {"heap": gc.mem_free(), "rssi": self.wifi.rssi(), "sd": 1 if self.sd else 0,
-                 "pending": self.outbox.count}
+                 "pending": self.outbox.count,
+                 # 🔌 периферия: что реально подключено (панель показывает «не подключено: …»)
+                 "rtc": 1 if self.clock.rtc_ok else 0, "valves": 1 if self.hw.pcf_ok else 0,
+                 "sensors": 1 if self.hw.sensors_ok else 0}
         self._queue({"sys_info": self.dev.sys_info(self.clock.unix(), extra)}, full=True)
         self._sys_at = self.now
         log("sys_info: свободно %d байт, rssi %s, очередь %d" % (extra["heap"], extra["rssi"], extra["pending"]))

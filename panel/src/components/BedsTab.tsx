@@ -1,7 +1,7 @@
 // Вкладка «Грядки»: плашки статуса и карточки 8 каналов (влажность, порог, клапан).
 import React from 'react';
 import { View, Text, navigateTo } from '@ray-js/ray';
-import { CHANNELS, Ch, t, bedName, valveTone, isWatering, faultsOf } from '@/lib/dp';
+import { CHANNELS, Ch, t, bedName, valveTone, isWatering, faultsOf, missingPeriph } from '@/lib/dp';
 import { useChannel, useStatus, useBedNames } from '@/lib/hooks';
 import styles from './common.module.less';
 
@@ -44,12 +44,18 @@ export default function BedsTab() {
   const s = useStatus();
   const { names } = useBedNames();
   const faults = faultsOf(s.fault).filter(f => f !== 'filter_clog');
+  const missing = missingPeriph(s.sys).filter(f => !faults.includes(f));  // не дублировать красную плашку
 
   return (
     <View>
       {faults.length > 0 && (
         <View className={styles.alert}>
           {t('ev_hw_fault', faults.map(f => t(`hw_${f}`)).join(', '))}
+        </View>
+      )}
+      {missing.length > 0 && (
+        <View className={styles.warnBox}>
+          {t('periph_notice', missing.map(f => t(`hw_${f}`)).join(', '))}
         </View>
       )}
       <View className={styles.chips}>
