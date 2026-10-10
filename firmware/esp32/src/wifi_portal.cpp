@@ -161,7 +161,7 @@ void WifiLink::startPortal() {
   bool apOk = WiFi.softAP(_apName, AP_PASSWORD, 1, 0, 4);
   delay(200);
   IPAddress ip = WiFi.softAPIP();
-  LOG_I("wifi: портал %s / %s, адрес http://%s (AP %s)", _apName, AP_PASSWORD, ip.toString().c_str(),
+  LOG_I("wifi: портал %s (без пароля), адрес http://%s (AP %s)", _apName, ip.toString().c_str(),
         apOk ? "поднята" : "НЕ ПОДНЯЛАСЬ");
   _dns = new DNSServer();
   _dns->start(53, "*", ip);

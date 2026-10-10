@@ -1,7 +1,7 @@
 // wifi_portal.h 📡 Wi-Fi контроллера: подключение к сохранённой сети и портал настройки.
 //
 // Сеть хранится в cfgFs(): /wifi.json {"ssid":..,"pass":..}. Портал — точка доступа
-// «DripIrrigation-XXXX» (пароль irrigation) с captive DNS (любое имя → адрес платы, чужие пути →
+// «DripIrrigation-XXXX» (без пароля) с captive DNS (любое имя → адрес платы, чужие пути →
 // редирект на «/»), на странице список сетей 2,4 ГГц с уровнем сигнала, поле ручного ввода и пароль.
 // Портал неблокирующий: работает параллельно с попытками подключения к сохранённой сети и с
 // поливом. Поднимается, когда сети нет в настройках, по кнопке и сам — если сохранённая сеть
@@ -14,7 +14,7 @@ class WebServer;
 
 class WifiLink {
  public:
-  static constexpr const char* AP_PASSWORD = "irrigation";
+  static constexpr const char* AP_PASSWORD = nullptr;   // открытая точка доступа: портал живёт только при настройке
   static constexpr uint32_t RECONNECT_SEC = 20;
   static constexpr uint32_t PORTAL_AFTER_SEC = 180;   // без связи столько секунд → портал сам
 
