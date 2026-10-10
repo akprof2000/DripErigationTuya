@@ -53,22 +53,22 @@ const ymd = (d: Date) =>
 const DAY_MS = 86400000;
 const dayKey = (timeStr: string) => timeStr.slice(0, 10).replace(/-/g, ''); // yyyy-MM-dd → yyyyMMdd
 
-type Report = { day: string; value: number };
+type Report = { day: string; hour: number; value: number };
 
 /**
- * Отчёты DP за последние `days` дней, по возрастанию времени. Страницы по 1000
- * запрашиваются по очереди (рекурсией), пока не дойдём до более старых дней
- * или до maxPages.
+ * Отчёты DP за дни fromDay..toDay (yyyyMMdd), по возрастанию времени. Журнал
+ * отдаётся с конца страницами по 1000: листаем (рекурсией), пока не дойдём до
+ * дней старше fromDay или до maxPages.
  */
 async function loadReports(
   devId: string,
   dpId: number,
-  days: number,
-  maxPages = 3,
+  fromDay: string,
+  toDay: string,
+  maxPages = 12,
   page = 0,
   acc: Report[] = []
 ): Promise<Report[]> {
-  const since = ymd(new Date(Date.now() - (days - 1) * DAY_MS));
   const res = await getDpReportLog({
     devId,
     dpIds: String(dpId),
@@ -76,11 +76,43 @@ async function loadReports(
     limit: 1000,
     sortType: 'DESC',
   });
-  const rows = (res?.dps ?? []).map(x => ({ day: dayKey(x.timeStr), value: Number(x.value) }));
-  const fresh = rows.filter(r => r.day >= since);
+  const rows = (res?.dps ?? []).map(x => ({
+    day: dayKey(x.timeStr),
+    hour: Number(x.timeStr.slice(11, 13)),
+    value: Number(x.value),
+  }));
+  const fresh = rows.filter(r => r.day >= fromDay && r.day <= toDay);
   const all = acc.concat(fresh);
-  if (fresh.length < rows.length || !res?.hasNext || page + 1 >= maxPages) return all.reverse();
-  return loadReports(devId, dpId, days, maxPages, page + 1, all);
+  const reachedOlder = rows.some(r => r.day < fromDay);
+  if (reachedOlder || !res?.hasNext || page + 1 >= maxPages) return all.reverse();
+  return loadReports(devId, dpId, fromDay, toDay, maxPages, page + 1, all);
+}
+
+export const dayOf = (offsetDays: number) => ymd(new Date(Date.now() - offsetDays * DAY_MS));
+
+/**
+ * Средние значения DP по часам за день (yyyyMMdd): 24 точки, null — нет данных.
+ * Это «график за день» бота: влажность грядки по часам.
+ */
+export async function loadHourlyFromLog(
+  devId: string,
+  dpId: number,
+  day: string,
+  scale = 0
+): Promise<(number | null)[]> {
+  try {
+    const reports = await loadReports(devId, dpId, day, day);
+    const sum = new Array(24).fill(0);
+    const cnt = new Array(24).fill(0);
+    reports.forEach(r => {
+      sum[r.hour] += r.value;
+      cnt[r.hour] += 1;
+    });
+    return sum.map((v, h) => (cnt[h] ? v / cnt[h] / 10 ** scale : null));
+  } catch (e) {
+    console.warn('loadHourlyFromLog', e);
+    return [];
+  }
 }
 
 /**
@@ -97,7 +129,7 @@ export async function loadDailyFromLog(
   scale = 0
 ): Promise<{ day: string; value: number }[]> {
   try {
-    const reports = await loadReports(devId, dpId, days);
+    const reports = await loadReports(devId, dpId, dayOf(days - 1), dayOf(0));
     const k = 10 ** scale;
     const sum: Record<string, number> = {};
     const cnt: Record<string, number> = {};

@@ -91,10 +91,18 @@
   height: 16rpx;
   border-radius: 50%;
 }
-.dot_water { background: @accent; }
-.dot_ok { background: #07c160; }
-.dot_idle { background: #c8c9cc; }
-.dot_off { background: #ee0a24; }
+.dot_water { background: @accent; }     // идёт полив
+.dot_ok { background: #07c160; }        // закрыт, полива нет
+.dot_unknown { background: #ffb400; }   // состояние ещё неизвестно
+
+// карточка грядки, которая сейчас поливается
+.cardWatering {
+  box-shadow: inset 0 0 0 3rpx @accent;
+}
+.watering {
+  color: @accent;
+  font-weight: 500;
+}
 
 .chips {
   display: flex;
@@ -225,4 +233,11 @@
 .center {
   text-align: center;
   display: block;
+}
+
+.navBtn {
+  font-size: 40rpx;
+  line-height: 1;
+  padding: 0 24rpx;
+  color: @accent;
 }

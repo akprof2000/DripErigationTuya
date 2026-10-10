@@ -22,12 +22,14 @@
 | 116 | `clog_threshold` | value | чтение/запись | Порог засора фильтра | 10…95 % |
 | 117 | `flow_monitor` | bool | чтение/запись | Контроль засора фильтра |  |
 | 118 | `autocal_no_delay` | bool | чтение/запись | Авто-калибровка без задержки |  |
-| 119 | `command` | enum | только запись | Команда | restart, reset_settings, clear_flow, filter_cleaned |
+| 119 | `command` | enum | только запись | Команда | restart, reset_settings, clear_flow, filter_cleaned, drain |
 | 120 | `mode_all` | enum | только запись | Режим всех каналов | auto, on, off, greenhouse |
 | 121 | `wizard` | string | только запись | Мастер: команда (JSON) | до 255 байт UTF-8 |
 | 122 | `wizard_state` | string | только чтение | Мастер: состояние (JSON) | до 255 байт UTF-8 |
 | 123 | `adc_raw` | raw | только чтение | АЦП каналов: 8 × (тек, мин, макс), uint16 BE |  |
 | 124 | `event` | string | только чтение | Событие (JSON с кодом, лента вместо уведомлений Telegram) | до 255 байт UTF-8 |
+| 125 | `pump_state` | enum | только чтение | Насос давления: причина работы (off — выключен, start — пусковые 30 с, valves — по порогу открытых клапанов, drain — пролив дренажа) | off, start, valves, drain |
+| 126 | `sys_info` | string | только чтение | О контроллере (JSON): fw, up — аптайм с, heap — свободно байт, rssi, t — время устройства, rtc/sd — 1/0, pulses — импульсов расходомера, last_pulse — с назад (-1 если не было), pending — записей в офлайн-очереди | до 255 байт UTF-8 |
 | 131 | `humidity_1` | value | только чтение | Влажность 1 | 0…100 % |
 | 132 | `humidity_2` | value | только чтение | Влажность 2 | 0…100 % |
 | 133 | `humidity_3` | value | только чтение | Влажность 3 | 0…100 % |
@@ -105,8 +107,9 @@ DP, из неё панель строит ленту). Тексты, назва�
 | `tank_fill` | | импульс заливки бака |
 | `drain_start` / `drain_end` | | пролив дренажа |
 | `clog` | `r` (поток), `e` (норма), л/мин | засор фильтра |
+| `flow_silent` / `flow_ok` | | насос работает, клапаны открыты, а импульсов расходомера нет 2 мин (датчик залип) / импульсы вернулись |
 | `hw_fault` | `f` (список узлов) | аварийный режим, полив остановлен |
-| `reboot`, `reset_settings`, `clear_flow`, `filter_cleaned` | | выполнена команда |
+| `reboot`, `reset_settings`, `clear_flow`, `filter_cleaned` | | выполнена команда (`drain` даёт `drain_start`/`drain_end`) |
 
 ## `fault` (DP 109)
 

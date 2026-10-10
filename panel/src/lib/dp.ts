@@ -71,10 +71,45 @@ export function eventText(e: DeviceEvent, names: string[]) {
 
 export const bedName = (names: string[], ch: number) => names[ch - 1] || `${t('bed')} ${ch}`;
 
-/** Иконка (Tabler-подобные имена из smart-ui не нужны — эмодзи-free, просто класс-тон). */
-export function valveTone(state: string | undefined): 'water' | 'ok' | 'idle' | 'off' {
+/** Кружок на карточке грядки: синий — идёт полив, жёлтый — состояние ещё
+ *  неизвестно (после старта), зелёный — клапан закрыт, полива нет. */
+export function valveTone(state: string | undefined): 'water' | 'unknown' | 'ok' {
   if (state === 'open_hum' || state === 'forced_open') return 'water';
-  if (state === 'close_hum') return 'ok';
-  if (state === 'forced_close') return 'off';
-  return 'idle';
+  if (!state || state === 'init') return 'unknown';
+  return 'ok';
+}
+
+export const isWatering = (state: string | undefined) => valveTone(state) === 'water';
+
+/** DP sys_info — JSON «о контроллере» (docs/dp.md). */
+export type SysInfo = {
+  fw?: string;
+  up?: number;
+  heap?: number;
+  rssi?: number;
+  t?: number;
+  rtc?: number;
+  sd?: number;
+  pulses?: number;
+  last_pulse?: number;
+  pending?: number;
+};
+
+export function parseSysInfo(raw: string | undefined): SysInfo {
+  try {
+    const v = raw ? JSON.parse(raw) : {};
+    return v && typeof v === 'object' ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Секунды → «2 д 03:14». */
+export function fmtUptime(sec: number | undefined) {
+  if (sec === undefined) return '—';
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const hm = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return d > 0 ? `${d} ${t('days_short')} ${hm}` : hm;
 }

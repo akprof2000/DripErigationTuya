@@ -28,6 +28,7 @@ class World:
         self.night = False
         self.auto_daynight = True   # 🌗 смена дня и ночи по часам эмулятора
         self.clog = 1.0             # 🧽 пропускная способность фильтра (1 = чистый)
+        self.flow_sensor_ok = True  # 📟 расходомер даёт импульсы (False — залип: воды нет «по датчику»)
         self.noise = 8              # 📟 шум АЦП, отсчёты
         self.valve_lpm = 0.06       # 💧 капельная ветка, л/мин на клапан
         self.drain_lpm = 2.0        # 🗑️ пролив дренажа, л/мин

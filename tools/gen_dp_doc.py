@@ -53,8 +53,9 @@ DP, из неё панель строит ленту). Тексты, назва�
 | `tank_fill` | | импульс заливки бака |
 | `drain_start` / `drain_end` | | пролив дренажа |
 | `clog` | `r` (поток), `e` (норма), л/мин | засор фильтра |
+| `flow_silent` / `flow_ok` | | насос работает, клапаны открыты, а импульсов расходомера нет 2 мин (датчик залип) / импульсы вернулись |
 | `hw_fault` | `f` (список узлов) | аварийный режим, полив остановлен |
-| `reboot`, `reset_settings`, `clear_flow`, `filter_cleaned` | | выполнена команда |
+| `reboot`, `reset_settings`, `clear_flow`, `filter_cleaned` | | выполнена команда (`drain` даёт `drain_start`/`drain_end`) |
 
 ## `fault` (DP 109)
 

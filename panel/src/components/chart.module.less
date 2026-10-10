@@ -1,0 +1,97 @@
+@accent: var(--app-M1, #1989fa);
+@grid: var(--app-B3-N7, rgba(0, 0, 0, 0.08));
+@muted: var(--app-B3-N3, rgba(0, 0, 0, 0.5));
+
+.wrap {
+  display: flex;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+.axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 200rpx;
+  width: 64rpx;
+  flex: none;
+}
+
+.tick {
+  font-size: 18rpx;
+  color: @muted;
+  text-align: right;
+  line-height: 1;
+}
+
+.plot {
+  flex: 1;
+  position: relative;
+}
+
+.gridTop,
+.gridMid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1rpx dashed @grid;
+}
+.gridTop { top: 0; }
+.gridMid { top: 100rpx; }
+
+.threshold {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2rpx solid #ff976a;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  height: 200rpx;
+  gap: 3rpx;
+  border-bottom: 1rpx solid @grid;
+}
+
+.col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.value {
+  font-size: 18rpx;
+  color: @muted;
+  margin-bottom: 4rpx;
+}
+
+.bar {
+  width: 100%;
+  background: @accent;
+  border-radius: 4rpx 4rpx 0 0;
+  min-height: 3rpx;
+}
+
+.barEmpty {
+  background: @grid;
+}
+
+.labels {
+  display: flex;
+  gap: 3rpx;
+  margin-top: 6rpx;
+}
+
+.label {
+  flex: 1;
+  font-size: 18rpx;
+  line-height: 1.3;
+  text-align: center;
+  white-space: pre-line;
+  color: @muted;
+  overflow: visible;
+}

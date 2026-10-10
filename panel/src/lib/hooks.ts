@@ -1,7 +1,7 @@
 // Хуки панели поверх SDM: чтение DP в «человеческом» виде и названия грядок.
 import { useEffect, useState, useCallback } from 'react';
 import { useProps, useDevice } from '@ray-js/panel-sdk';
-import { Ch, scaled } from './dp';
+import { Ch, scaled, parseSysInfo } from './dp';
 import { loadNames, saveNames } from './cloud';
 
 /** Все DP одной грядки. */
@@ -27,6 +27,8 @@ export function useStatus() {
     flowTotal: scaled(p.flow_total as number, 1),
     filterBaseline: scaled(p.filter_baseline as number, 3),
     fault: (p.fault as number) ?? 0,
+    pumpState: (p.pump_state as string) ?? (p.pump ? 'valves' : 'off'),
+    sys: parseSysInfo(p.sys_info as string),
   };
 }
 

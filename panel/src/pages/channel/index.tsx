@@ -5,7 +5,8 @@ import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames } from '@/lib/hooks';
-import { loadDailyFromLog } from '@/lib/cloud';
+import { loadDailyFromLog, loadHourlyFromLog, dayOf } from '@/lib/cloud';
+import Chart from '@/components/Chart';
 import styles from '@/components/common.module.less';
 import page from '../home/index.module.less';
 
@@ -19,12 +20,34 @@ export default function ChannelPage() {
   const { names, rename } = useBedNames();
   const name = bedName(names, ch);
   const [draft, setDraft] = useState(border);
-  const [history, setHistory] = useState<{ day: string; value: number }[]>([]);
+  // график: по часам за выбранный день (0 — сегодня, 1 — вчера, … 6) или по дням за неделю
+  const [dayBack, setDayBack] = useState(0);
+  const [week, setWeek] = useState(false);
+  const [hourly, setHourly] = useState<(number | null)[]>([]);
+  const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => setDraft(border), [border]);
   useEffect(() => {
-    if (devId) loadDailyFromLog(devId, 130 + ch, 7, 'avg').then(setHistory);
-  }, [devId, ch]);
+    if (!devId) return;
+    setLoading(true);
+    const done = () => setLoading(false);
+    if (week)
+      loadDailyFromLog(devId, 130 + ch, 7, 'avg')
+        .then(setDaily)
+        .then(done, done);
+    else
+      loadHourlyFromLog(devId, 130 + ch, dayOf(dayBack))
+        .then(setHourly)
+        .then(done, done);
+  }, [devId, ch, dayBack, week]);
+
+  const dayTitle = (back: number) => {
+    if (back === 0) return t('today');
+    if (back === 1) return t('yesterday');
+    const d = dayOf(back);
+    return `${d.slice(6)}.${d.slice(4, 6)}`;
+  };
 
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -40,13 +63,66 @@ export default function ChannelPage() {
         <View className={styles.section}>
           <Text className={styles.huge}>{humidity}%</Text>
           <Text className={`${styles.center} ${styles.muted}`}>{t(`vs_${valve ?? 'init'}`)}</Text>
-          {history.length > 0 && (
-            <View className={styles.chart}>
-              {history.map(d => (
-                <View key={d.day} className={styles.chartBar} style={{ height: `${d.value}%` }} />
-              ))}
+        </View>
+
+        <View className={styles.section}>
+          <View className={styles.row}>
+            <Text className={styles.sectionTitle}>{t('humidity_chart')}</Text>
+            <View className={styles.segment}>
+              <Text
+                className={`${styles.segItem} ${!week ? styles.segActive : ''}`}
+                onClick={() => setWeek(false)}
+              >
+                {t('by_day')}
+              </Text>
+              <Text
+                className={`${styles.segItem} ${week ? styles.segActive : ''}`}
+                onClick={() => setWeek(true)}
+              >
+                {t('by_week')}
+              </Text>
+            </View>
+          </View>
+          {!week && (
+            <View className={styles.row}>
+              <Text className={styles.navBtn} onClick={() => setDayBack(Math.min(6, dayBack + 1))}>
+                {'<'}
+              </Text>
+              <Text>{dayTitle(dayBack)}</Text>
+              <Text className={styles.navBtn} onClick={() => setDayBack(Math.max(0, dayBack - 1))}>
+                {'>'}
+              </Text>
             </View>
           )}
+          {loading && <Text className={styles.muted}>{t('loading')}</Text>}
+          {!loading && week && daily.length > 0 && (
+            <Chart
+              points={daily.map(d => ({
+                label: `${d.day.slice(6)}.${d.day.slice(4, 6)}`,
+                value: Math.round(d.value),
+              }))}
+              max={100}
+              unit="%"
+              threshold={border}
+              showValues
+            />
+          )}
+          {!loading && !week && hourly.some(v => v !== null) && (
+            <Chart
+              points={hourly.map((v, h) => ({
+                label: `${h}`,
+                value: v === null ? null : Math.round(v),
+              }))}
+              max={100}
+              unit="%"
+              threshold={border}
+              labelEvery={3}
+            />
+          )}
+          {!loading &&
+            ((week && daily.length === 0) || (!week && !hourly.some(v => v !== null))) && (
+              <Text className={styles.muted}>{t('no_data')}</Text>
+            )}
         </View>
 
         <View className={styles.section}>

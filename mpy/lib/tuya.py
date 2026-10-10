@@ -147,7 +147,21 @@ class Tuya:
         return "https://smartapp.tuya.com/s/p?p=%s&uuid=%s&v=2.0" % (self.pid, self.uuid)
 
     # ---------------- главный шаг
+    def set_paused(self, paused):
+        """Имитация пропажи сети (эмулятор): соединение рвём, не переподключаемся."""
+        self.paused = paused
+        if paused and self.mq:
+            self.mq.close()
+            self.mq = None
+            self.state = "wait"
+            self.log("tuya: сеть отключена (имитация)")
+        if not paused:
+            self._retry_at = ticks_ms()
+            self._backoff = 5
+
     def loop(self):
+        if getattr(self, "paused", False):
+            return
         try:
             if self.state == "wait":
                 if ticks_diff(ticks_ms(), self._retry_at) >= 0:
@@ -237,17 +251,24 @@ class Tuya:
             if self.on_reset:
                 self.on_reset()
 
-    def push(self, dps):
-        """dps: {id: value}; bytes (raw-DP) уходят в base64. False, если не онлайн."""
+    def push(self, dps, t=None):
+        """dps: {id: value}; bytes (raw-DP) уходят в base64. False, если не онлайн.
+
+        t — unix-время, когда значения были получены: так отправляются отчёты,
+        накопленные без связи, и облако кладёт их в журнал задним числом
+        (как tuya_iot_dp_report_json_with_time в TuyaOpen).
+        """
         if not self.online:
             return False
         out = {}
         for k, v in dps.items():
             out[str(k)] = b64encode(v) if isinstance(v, (bytes, bytearray)) else v
+        data = {"devId": self.st["devId"], "dps": out}
+        if t is not None:
+            data["t"] = int(t)
         self.seq += 1
         frame = pack(self.st["localKey"].encode(), self.seq, {
-            "protocol": MQ_DPS_PUSH, "t": unix_time(),
-            "data": {"devId": self.st["devId"], "dps": out}})
+            "protocol": MQ_DPS_PUSH, "t": unix_time(), "data": data})
         try:
             self.mq.publish("smart/device/out/" + self.st["devId"], frame)
         except Exception as e:

@@ -1,45 +1,329 @@
 {
-  "_comment": "Единый источник правды о data points (DP) устройства. Совпадает с продуктом PID 0uo7msdnt2yn1lgp в консоли Tuya (56 DP). Названия грядок в DP не входят: панель хранит их в облачных свойствах устройства. По нему работают эмулятор, генератор документации, а позже панель и прошивка ESP32. Канальные DP (\"per_channel\": true) раскрываются в 8 штук: id = base_id + номер канала (1..8), code = code + '_' + номер.",
+  "_comment": "Единый источник правды о data points (DP) устройства. Совпадает с продуктом PID 0uo7msdnt2yn1lgp в консоли Tuya (56 DP). Названия грядок в DP не входят: панель хранит их в облачных свойствах устройства. По нему работают эмулятор, генератор документации, а позже панель и прошивка ESP32. Канальные DP (\"per_channel\": true) раскрываются в 8 штук: id = base_id + номер канала (1..8), code = code + '_' + номер. Отчёты DP при отсутствии связи копятся в очереди на SD/флеше с меткой времени и после восстановления связи отправляются с полем t, чтобы облачный журнал (и графики) были полными; очередь после отправки очищается.",
   "product": {
     "name": "Капельный полив 8 каналов",
     "channels": 8
   },
   "enums": {
-    "mode": ["auto", "on", "off", "greenhouse"],
-    "valve_state": ["init", "open_hum", "close_hum", "hyst", "forced_open", "forced_close"],
-    "command": ["restart", "reset_settings", "clear_flow", "filter_cleaned"]
+    "mode": [
+      "auto",
+      "on",
+      "off",
+      "greenhouse"
+    ],
+    "valve_state": [
+      "init",
+      "open_hum",
+      "close_hum",
+      "hyst",
+      "forced_open",
+      "forced_close"
+    ],
+    "command": [
+      "restart",
+      "reset_settings",
+      "clear_flow",
+      "filter_cleaned",
+      "drain"
+    ],
+    "pump_state": [
+      "off",
+      "start",
+      "valves",
+      "drain"
+    ]
   },
   "dps": [
-    {"id": 101, "code": "rain",            "type": "bool",   "mode": "ro", "name": "Дождь"},
-    {"id": 102, "code": "night",           "type": "bool",   "mode": "ro", "name": "Ночь"},
-    {"id": 103, "code": "pump",            "type": "bool",   "mode": "ro", "name": "Насос включён"},
-    {"id": 104, "code": "drain",           "type": "bool",   "mode": "ro", "name": "Идёт пролив дренажа"},
-    {"id": 105, "code": "fill",            "type": "bool",   "mode": "ro", "name": "Идёт заливка бака"},
-    {"id": 106, "code": "flow_rate",       "type": "value",  "mode": "ro", "name": "Скорость потока", "min": 0, "max": 100000, "step": 1, "scale": 3, "unit": "л/мин"},
-    {"id": 107, "code": "flow_session",    "type": "value",  "mode": "ro", "name": "Расход за сессию", "min": 0, "max": 10000000, "step": 1, "scale": 2, "unit": "л"},
-    {"id": 108, "code": "flow_total",      "type": "value",  "mode": "ro", "name": "Расход всего", "min": 0, "max": 100000000, "step": 1, "scale": 1, "unit": "л", "stats": true},
-    {"id": 109, "code": "fault",           "type": "fault",  "mode": "ro", "name": "Неисправности", "labels": ["rtc", "sd", "valves", "filter_clog"]},
-    {"id": 110, "code": "filter_baseline", "type": "value",  "mode": "ro", "name": "Эталон потока на клапан", "min": 0, "max": 100000, "step": 1, "scale": 3, "unit": "л/мин"},
-
-    {"id": 111, "code": "run_on_rain",       "type": "bool",  "mode": "rw", "name": "Работать в дождь", "default": true},
-    {"id": 112, "code": "run_on_night",      "type": "bool",  "mode": "rw", "name": "Работать ночью", "default": false},
-    {"id": 113, "code": "delta_hum",         "type": "value", "mode": "rw", "name": "Гистерезис влажности", "min": 0, "max": 50, "step": 1, "scale": 0, "unit": "%", "default": 5},
-    {"id": 114, "code": "delta_calib",       "type": "value", "mode": "rw", "name": "Дельта калибровки", "min": 0, "max": 500, "step": 1, "scale": 0, "unit": "АЦП", "default": 15},
-    {"id": 115, "code": "boost_pump_valves", "type": "value", "mode": "rw", "name": "Насос давления: от N клапанов (9 = выкл)", "min": 1, "max": 9, "step": 1, "scale": 0, "unit": "", "default": 9},
-    {"id": 116, "code": "clog_threshold",    "type": "value", "mode": "rw", "name": "Порог засора фильтра", "min": 10, "max": 95, "step": 1, "scale": 0, "unit": "%", "default": 50},
-    {"id": 117, "code": "flow_monitor",      "type": "bool",  "mode": "rw", "name": "Контроль засора фильтра", "default": true},
-    {"id": 118, "code": "autocal_no_delay",  "type": "bool",  "mode": "rw", "name": "Авто-калибровка без задержки", "default": false},
-
-    {"id": 119, "code": "command",      "type": "enum",   "mode": "wr", "name": "Команда", "range": "command"},
-    {"id": 120, "code": "mode_all",     "type": "enum",   "mode": "wr", "name": "Режим всех каналов", "range": "mode"},
-    {"id": 121, "code": "wizard",       "type": "string", "mode": "wr", "name": "Мастер: команда (JSON)", "maxlen": 255},
-    {"id": 122, "code": "wizard_state", "type": "string", "mode": "ro", "name": "Мастер: состояние (JSON)", "maxlen": 255},
-    {"id": 123, "code": "adc_raw",      "type": "raw",    "mode": "ro", "name": "АЦП каналов: 8 × (тек, мин, макс), uint16 BE"},
-    {"id": 124, "code": "event",        "type": "string", "mode": "ro", "name": "Событие (JSON с кодом, лента вместо уведомлений Telegram)", "maxlen": 255},
-
-    {"id": 130, "per_channel": true, "code": "humidity", "type": "value",  "mode": "ro", "name": "Влажность", "min": 0, "max": 100, "step": 1, "scale": 0, "unit": "%", "stats": true},
-    {"id": 140, "per_channel": true, "code": "valve",    "type": "enum",   "mode": "ro", "name": "Клапан", "range": "valve_state"},
-    {"id": 150, "per_channel": true, "code": "mode",     "type": "enum",   "mode": "rw", "name": "Режим", "range": "mode", "default": "auto"},
-    {"id": 160, "per_channel": true, "code": "border",   "type": "value",  "mode": "rw", "name": "Порог влажности", "min": 0, "max": 100, "step": 1, "scale": 0, "unit": "%", "default": 60}
+    {
+      "id": 101,
+      "code": "rain",
+      "type": "bool",
+      "mode": "ro",
+      "name": "Дождь"
+    },
+    {
+      "id": 102,
+      "code": "night",
+      "type": "bool",
+      "mode": "ro",
+      "name": "Ночь"
+    },
+    {
+      "id": 103,
+      "code": "pump",
+      "type": "bool",
+      "mode": "ro",
+      "name": "Насос включён"
+    },
+    {
+      "id": 104,
+      "code": "drain",
+      "type": "bool",
+      "mode": "ro",
+      "name": "Идёт пролив дренажа"
+    },
+    {
+      "id": 105,
+      "code": "fill",
+      "type": "bool",
+      "mode": "ro",
+      "name": "Идёт заливка бака"
+    },
+    {
+      "id": 106,
+      "code": "flow_rate",
+      "type": "value",
+      "mode": "ro",
+      "name": "Скорость потока",
+      "min": 0,
+      "max": 100000,
+      "step": 1,
+      "scale": 3,
+      "unit": "л/мин"
+    },
+    {
+      "id": 107,
+      "code": "flow_session",
+      "type": "value",
+      "mode": "ro",
+      "name": "Расход за сессию",
+      "min": 0,
+      "max": 10000000,
+      "step": 1,
+      "scale": 2,
+      "unit": "л"
+    },
+    {
+      "id": 108,
+      "code": "flow_total",
+      "type": "value",
+      "mode": "ro",
+      "name": "Расход всего",
+      "min": 0,
+      "max": 100000000,
+      "step": 1,
+      "scale": 1,
+      "unit": "л",
+      "stats": true
+    },
+    {
+      "id": 109,
+      "code": "fault",
+      "type": "fault",
+      "mode": "ro",
+      "name": "Неисправности",
+      "labels": [
+        "rtc",
+        "sd",
+        "valves",
+        "filter_clog"
+      ]
+    },
+    {
+      "id": 110,
+      "code": "filter_baseline",
+      "type": "value",
+      "mode": "ro",
+      "name": "Эталон потока на клапан",
+      "min": 0,
+      "max": 100000,
+      "step": 1,
+      "scale": 3,
+      "unit": "л/мин"
+    },
+    {
+      "id": 111,
+      "code": "run_on_rain",
+      "type": "bool",
+      "mode": "rw",
+      "name": "Работать в дождь",
+      "default": true
+    },
+    {
+      "id": 112,
+      "code": "run_on_night",
+      "type": "bool",
+      "mode": "rw",
+      "name": "Работать ночью",
+      "default": false
+    },
+    {
+      "id": 113,
+      "code": "delta_hum",
+      "type": "value",
+      "mode": "rw",
+      "name": "Гистерезис влажности",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "scale": 0,
+      "unit": "%",
+      "default": 5
+    },
+    {
+      "id": 114,
+      "code": "delta_calib",
+      "type": "value",
+      "mode": "rw",
+      "name": "Дельта калибровки",
+      "min": 0,
+      "max": 500,
+      "step": 1,
+      "scale": 0,
+      "unit": "АЦП",
+      "default": 15
+    },
+    {
+      "id": 115,
+      "code": "boost_pump_valves",
+      "type": "value",
+      "mode": "rw",
+      "name": "Насос давления: от N клапанов (9 = выкл)",
+      "min": 1,
+      "max": 9,
+      "step": 1,
+      "scale": 0,
+      "unit": "",
+      "default": 9
+    },
+    {
+      "id": 116,
+      "code": "clog_threshold",
+      "type": "value",
+      "mode": "rw",
+      "name": "Порог засора фильтра",
+      "min": 10,
+      "max": 95,
+      "step": 1,
+      "scale": 0,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "id": 117,
+      "code": "flow_monitor",
+      "type": "bool",
+      "mode": "rw",
+      "name": "Контроль засора фильтра",
+      "default": true
+    },
+    {
+      "id": 118,
+      "code": "autocal_no_delay",
+      "type": "bool",
+      "mode": "rw",
+      "name": "Авто-калибровка без задержки",
+      "default": false
+    },
+    {
+      "id": 119,
+      "code": "command",
+      "type": "enum",
+      "mode": "wr",
+      "name": "Команда",
+      "range": "command"
+    },
+    {
+      "id": 120,
+      "code": "mode_all",
+      "type": "enum",
+      "mode": "wr",
+      "name": "Режим всех каналов",
+      "range": "mode"
+    },
+    {
+      "id": 121,
+      "code": "wizard",
+      "type": "string",
+      "mode": "wr",
+      "name": "Мастер: команда (JSON)",
+      "maxlen": 255
+    },
+    {
+      "id": 122,
+      "code": "wizard_state",
+      "type": "string",
+      "mode": "ro",
+      "name": "Мастер: состояние (JSON)",
+      "maxlen": 255
+    },
+    {
+      "id": 123,
+      "code": "adc_raw",
+      "type": "raw",
+      "mode": "ro",
+      "name": "АЦП каналов: 8 × (тек, мин, макс), uint16 BE"
+    },
+    {
+      "id": 124,
+      "code": "event",
+      "type": "string",
+      "mode": "ro",
+      "name": "Событие (JSON с кодом, лента вместо уведомлений Telegram)",
+      "maxlen": 255
+    },
+    {
+      "id": 125,
+      "code": "pump_state",
+      "type": "enum",
+      "mode": "ro",
+      "range": "pump_state",
+      "name": "Насос давления: причина работы (off — выключен, start — пусковые 30 с, valves — по порогу открытых клапанов, drain — пролив дренажа)"
+    },
+    {
+      "id": 126,
+      "code": "sys_info",
+      "type": "string",
+      "mode": "ro",
+      "maxlen": 255,
+      "name": "О контроллере (JSON): fw, up — аптайм с, heap — свободно байт, rssi, t — время устройства, rtc/sd — 1/0, pulses — импульсов расходомера, last_pulse — с назад (-1 если не было), pending — записей в офлайн-очереди"
+    },
+    {
+      "id": 130,
+      "per_channel": true,
+      "code": "humidity",
+      "type": "value",
+      "mode": "ro",
+      "name": "Влажность",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 0,
+      "unit": "%",
+      "stats": true
+    },
+    {
+      "id": 140,
+      "per_channel": true,
+      "code": "valve",
+      "type": "enum",
+      "mode": "ro",
+      "name": "Клапан",
+      "range": "valve_state"
+    },
+    {
+      "id": 150,
+      "per_channel": true,
+      "code": "mode",
+      "type": "enum",
+      "mode": "rw",
+      "name": "Режим",
+      "range": "mode",
+      "default": "auto"
+    },
+    {
+      "id": 160,
+      "per_channel": true,
+      "code": "border",
+      "type": "value",
+      "mode": "rw",
+      "name": "Порог влажности",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "scale": 0,
+      "unit": "%",
+      "default": 60
+    }
   ]
 }

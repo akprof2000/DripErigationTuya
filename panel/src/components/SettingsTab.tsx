@@ -72,6 +72,7 @@ export default function SettingsTab() {
           isLink
           onClick={() => navigateTo({ url: '/pages/wizard/index?op=search' })}
         />
+        <Cell title={t('about')} isLink onClick={() => navigateTo({ url: '/pages/about/index' })} />
       </CellGroup>
 
       <View className={styles.buttons}>

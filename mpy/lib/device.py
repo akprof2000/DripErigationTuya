@@ -32,6 +32,7 @@ def merge(d, **kw):
 
 
 # ---- константы из прошивки (objects.h / timing.h) ----
+FW_VERSION = "1.0.0"    # версия прошивки — уходит в sys_info и в активацию Tuya (softVer)
 MODE_AUTO, MODE_ON, MODE_OFF, MODE_GREENHOUSE = "auto", "on", "off", "greenhouse"
 V_INIT, V_OPEN_HUM, V_CLOSE_HUM, V_HYST, V_FORCED_OPEN, V_FORCED_CLOSE = (
     "init", "open_hum", "close_hum", "hyst", "forced_open", "forced_close")
@@ -39,11 +40,13 @@ V_INIT, V_OPEN_HUM, V_CLOSE_HUM, V_HYST, V_FORCED_OPEN, V_FORCED_CLOSE = (
 FILLING_WAIT = 3        # с — импульс заливки бака
 DRAIN_TIMEOUT = 12      # с — пролив дренажа
 PUMP_TIMEOUT = 30       # с — пусковой режим насоса
+PULSES_PER_LITER = 450  # имп./л — как FLOW_PULSES_PER_LITER в прошивке
 TIMEOUT_WAIT = 18000    # с — после стольких секунд «всё закрыто» первое открытие делает пролив
 HUM_AUTOCAL_CONFIRM = 3
 SEARCH_DELTA = 300      # АЦП — порог «этот датчик вынули из воды» (telegram.cpp, SearchDetect)
 CALIB_MIN_SPAN = 100    # АЦП — минимальный размах калибровки (telegram.cpp, CalibFinish)
 
+FLOW_SILENCE_MIN = 2    # мин — насос работает, клапаны открыты, импульсов нет → «расходомер молчит»
 FM_SETTLE_MIN = 3       # мин — упрощённо: столько минут клапаны не менялись → поток стабилен
 FM_BAD_WINDOWS = 3      # подряд «плохих» минут для тревоги засора
 
@@ -186,6 +189,11 @@ class Device:
         self.clogged = False
         self.fm_bad = 0
         self.fm_stable_min = 0
+        self.flow_pulses = 0             # импульсов расходомера с включения
+        self.last_pulse_at = None        # unix последнего импульса
+        self.flow_silent = False         # тревога «расходомер молчит»
+        self._silent_min = 0
+        self.boot_unix = None
         self.fault_shutdown_done = False
         self.wizard = {"op": "idle"}
         self.search_snapshot = None
@@ -270,6 +278,16 @@ class Device:
     def _set_pump(self, on):
         if on != self.pump:
             self.pump = on
+
+    def pump_state(self):
+        """DP pump_state: off | start (пусковые 30 с) | valves (по порогу) | drain (пролив)."""
+        if not self.pump:
+            return "off"
+        if self.drain_active:
+            return "drain"
+        if self.pump_start is not None:
+            return "start"
+        return "valves"
 
     def stop_pump_if_need(self):
         if self.drain_active:
@@ -428,6 +446,19 @@ class Device:
         else:
             self.fm_bad = 0
 
+    def _flow_silence_minute(self, unix):
+        """Насос работает, клапаны открыты, а импульсов нет FLOW_SILENCE_MIN минут —
+        датчик залип или забит. Событие один раз, второе — когда импульсы вернулись."""
+        expect = self.pump and self.count_open() > 0 and not self.drain_active
+        silent = expect and (self.last_pulse_at is None or unix - self.last_pulse_at >= 60)
+        self._silent_min = self._silent_min + 1 if silent else 0
+        if self._silent_min >= FLOW_SILENCE_MIN and not self.flow_silent:
+            self.flow_silent = True
+            self.event("flow_silent")
+        elif self.flow_silent and not silent and self.last_pulse_at is not None:
+            self.flow_silent = False
+            self.event("flow_ok")
+
     # =====================================================================
     # loop(): now — секунды эмулятора (аналог millis), unix — время суток
     # =====================================================================
@@ -448,9 +479,16 @@ class Device:
             self.pump_start = None
             self.stop_pump_if_need()
 
-        # 💧 расходомер
+        if self.boot_unix is None:
+            self.boot_unix = unix
+
+        # 💧 расходомер: в прошивке — импульсы с датчика, здесь — из модели мира
         self.flow_rate = self.world.flow_lpm() if self.pump else 0.0
         self.flow_session += self.flow_rate * dt / 60.0
+        pulses = int(self.flow_rate * dt / 60.0 * PULSES_PER_LITER)
+        if pulses > 0 and getattr(self.world, "flow_sensor_ok", True):
+            self.flow_pulses += pulses
+            self.last_pulse_at = unix
 
         minute = int(unix // 60)
         if minute != self.last_minute:
@@ -461,6 +499,7 @@ class Device:
             self.auto_calibrate_bounds()
             self.control_valves(self.check_weather(now), now, unix)
             self._filter_minute(before != self.is_close)
+            self._flow_silence_minute(unix)
             self.cfg.flow_session = self.flow_session
 
     # =====================================================================
@@ -520,6 +559,8 @@ class Device:
             self.fm_bad = 0
             self.save()
             self.event("filter_cleaned")
+        elif cmd == "drain":
+            self.spillage(now)      # /Spillage бота: ручной пролив дренажа
 
     # ---- мастера калибровки и поиска (telegram.cpp, Dlg::Calib*/Search*/CalibManual) ----
     def _wizard(self, text):
@@ -611,10 +652,26 @@ class Device:
     # =====================================================================
     # Снимок DP и отчёт об изменениях
     # =====================================================================
+    def sys_info(self, unix, extra=None):
+        """DP sys_info — то, что бот показывал в /status и /WaterFlow как диагностику.
+        extra — что знает только платформа: heap, rssi, sd, pending (очередь офлайн)."""
+        info = {
+            "fw": FW_VERSION,
+            "up": int(unix - self.boot_unix) if self.boot_unix is not None else 0,
+            "t": int(unix),
+            "rtc": 0 if "rtc" in self.hw_faults else 1,
+            "pulses": self.flow_pulses,
+            "last_pulse": int(unix - self.last_pulse_at) if self.last_pulse_at is not None else -1,
+        }
+        if extra:
+            info.update(extra)
+        return dumps(info)
+
     def dp_snapshot(self):
         s = self.spec
         out = {
             "rain": self.rain_now, "night": self.night_now, "pump": self.pump,
+            "pump_state": self.pump_state(),
             "drain": self.drain_active, "fill": self.fill_active,
             "flow_rate": self.flow_rate, "flow_session": self.flow_session,
             "flow_total": self.cfg.flow_total,

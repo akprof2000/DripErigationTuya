@@ -6,6 +6,7 @@ import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { t, faultsOf } from '@/lib/dp';
 import { useStatus } from '@/lib/hooks';
 import { loadDailyFromLog } from '@/lib/cloud';
+import Chart from './Chart';
 import styles from './common.module.less';
 
 const FLOW_TOTAL_DP = 108;
@@ -50,33 +51,32 @@ export default function WaterTab() {
         </View>
       </View>
 
-      {daily.some(d => d.value > 0) ? (
-        <View className={styles.section}>
-          <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
-          <View className={styles.chart}>
-            {daily.map(d => (
-              <View
-                key={d.day}
-                className={styles.chartBar}
-                style={{ height: `${(d.value / maxDay) * 100}%` }}
-              />
-            ))}
-          </View>
-          <View className={styles.chartLabels}>
-            {daily.map(d => (
-              <Text key={d.day} className={styles.chartLabel}>
-                {`${d.value >= 10 ? Math.round(d.value) : d.value.toFixed(1)}\n${d.day.slice(
-                  6
-                )}.${d.day.slice(4, 6)}`}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : (
-        <View className={styles.section}>
+      <View className={styles.section}>
+        <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
+        {daily.some(d => d.value > 0) ? (
+          <Chart
+            points={daily.map(d => ({
+              label: `${d.day.slice(6)}.${d.day.slice(4, 6)}`,
+              value: d.value,
+            }))}
+            unit={t('liters')}
+            showValues
+          />
+        ) : (
           <Text className={styles.muted}>{t('water_no_chart')}</Text>
-        </View>
-      )}
+        )}
+        {s.sys.pulses !== undefined && (
+          <Text className={styles.muted}>
+            {t(
+              'flow_diag',
+              s.sys.pulses,
+              s.sys.last_pulse === undefined || s.sys.last_pulse < 0
+                ? t('never')
+                : t('ago_sec', s.sys.last_pulse)
+            )}
+          </Text>
+        )}
+      </View>
 
       <View className={`${styles.section} ${clogged ? styles.warnBox : ''}`}>
         <View className={styles.row}>
@@ -103,6 +103,14 @@ export default function WaterTab() {
       </View>
 
       <View className={styles.buttons}>
+        <Button
+          block
+          plain
+          disabled={s.drain}
+          onClick={() => confirm(t('confirm_drain'), () => actions.command.set('drain'))}
+        >
+          {s.drain ? t('drain_running') : t('drain_now')}
+        </Button>
         <Button
           block
           plain

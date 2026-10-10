@@ -11,7 +11,6 @@
 import argparse
 import json
 import logging
-import queue
 import shlex
 import sys
 import threading
@@ -20,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mpy" / "lib"))
 from device import Device  # noqa: E402
+from outbox import Outbox  # noqa: E402
 from spec import Spec  # noqa: E402
 from world import World, ADC_WET, ADC_DRY  # noqa: E402
 
@@ -34,6 +34,8 @@ HELP = """\
   rain on|off          дождь
   night on|off|auto    ночь (auto — по часам эмулятора: ночь 21:00–06:00)
   clog 0..1            пропускная способность фильтра (1 = чистый, 0.3 = засор)
+  flowsensor on|off    расходомер исправен / залип (нет импульсов)
+  net on|off           имитация пропажи интернета: отчёты копятся в pending.jsonl
   fault rtc|sd|valves on|off   аппаратная неисправность (аварийный режим)
 Облако (как будто прислала панель):
   set КОД ЗНАЧЕНИЕ     например: set mode_3 on | set border_1 45 | set run_on_night true
@@ -68,7 +70,9 @@ class Emulator:
         self.unix = time.time() - lt.tm_sec    # «часы» эмулятора, стартуют с реального времени
         self.lock = threading.RLock()
         self.client = None
-        self.outbox = queue.Queue()
+        self.outbox = Outbox(str(HERE / "pending.jsonl"))   # отчёты, пока нет связи
+        self.sys_every = 10 * 60   # сек эмулятора между отчётами sys_info
+        self._sys_at = 0.0
         self.offline = args.offline
         self.verbose = args.verbose
         self.running = True
@@ -96,18 +100,26 @@ class Emulator:
         # подключение может идти секундами, а консоль и модель должны работать.
         while self.running:
             self.client.loop()
-            while not self.outbox.empty():
-                dps = self.outbox.get()
-                if self.client.online:   # офлайн — выбрасываем: после подключения уйдёт полный снимок
-                    self.client.push(dps)
-                    log.debug("→ облако: %s", dps)
+            if self.client.online and self.outbox.count:
+                was = self.outbox.count
+                n = self.outbox.flush(self.client.push)   # накопленное — с меткой времени
+                if was > 3:   # онлайн очередь почти пуста; много записей — значит, была пауза связи
+                    log.info("→ облако: отправлено %d отчётов из очереди, осталось %d", n, self.outbox.count)
             time.sleep(0.05)
 
     def _on_connected(self):
         log.info("облако: подключено")
         with self.lock:
+            # сначала очередь (история задним числом), потом полный снимок «сейчас»
+            self.outbox.flush(self.client.push)
             for p in self.dev.report(full=True):
                 self.push(p)
+            self.push_sys_info()
+
+    def push_sys_info(self):
+        extra = {"heap": 0, "rssi": 0, "sd": 1, "pending": self.outbox.count}
+        self.push({"sys_info": self.dev.sys_info(self.unix, extra)})
+        self._sys_at = self.now
 
     def _on_dps(self, dps):
         log.info("← облако: %s", dps)
@@ -131,7 +143,8 @@ class Emulator:
                 shown = {k: (v.hex() if isinstance(v, bytes) else v) for k, v in packet.items()}
                 print("→", shown if "event" not in packet else self.event_text(packet["event"]))
             return
-        self.outbox.put({self.spec.by_code[code].id: v for code, v in packet.items()})
+        # всегда через очередь: онлайн она уходит сразу (сетевой поток), офлайн — копится
+        self.outbox.put({self.spec.by_code[code].id: v for code, v in packet.items()}, self.unix)
 
     def event_text(self, raw):
         """Человекочитаемое событие для консоли (так же будет рисовать панель)."""
@@ -155,8 +168,28 @@ class Emulator:
                 self.dev.tick(self.now, self.unix, self.speed)
                 for p in self.dev.report():
                     self.push(p)
+                if self.client and self.now - self._sys_at >= self.sys_every:
+                    self.push_sys_info()
 
     # ------------------------------------------------------------ консоль
+    def cmd_file_loop(self, path):
+        """Команды из файла: каждая новая строка выполняется как набранная в консоли."""
+        done = 0
+        while self.running:
+            try:
+                lines = Path(path).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                lines = []
+            for line in lines[done:]:
+                done += 1
+                print(f"[cmd] {line}")
+                with self.lock:
+                    try:
+                        self.command(line)
+                    except (ValueError, IndexError, KeyError, AssertionError) as e:
+                        print("ошибка:", e or "неверные аргументы")
+            time.sleep(1)
+
     def status(self):
         d = self.dev
         t = time.strftime("%H:%M", time.localtime(self.unix))
@@ -206,6 +239,12 @@ class Emulator:
                 w.night = a[0] == "on"
         elif cmd == "clog":
             w.clog = float(a[0])
+        elif cmd == "flowsensor":
+            w.flow_sensor_ok = a[0] == "on"
+        elif cmd == "net":
+            if self.client:
+                self.client.set_paused(a[0] == "off")
+            print("очередь офлайн:", self.outbox.count, "записей")
         elif cmd == "fault":
             (self.dev.hw_faults.add if a[1] == "on" else self.dev.hw_faults.discard)(a[0])
         elif cmd == "speed":
@@ -236,6 +275,7 @@ def main():
     ap.add_argument("--state", default="state.json", help="файл настроек (аналог Config на SD)")
     ap.add_argument("--speed", type=float, default=6.0, help="секунд эмулятора на 1 реальную секунду")
     ap.add_argument("-v", "--verbose", action="store_true", help="печатать все отчёты DP и отладку SDK")
+    ap.add_argument("--cmd-file", help="файл, из которого раз в секунду читаются консольные команды (для автоматизации)")
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -248,6 +288,8 @@ def main():
                      f"или запустите с --offline.")
         emu.connect(args.creds)
     threading.Thread(target=emu.run_loop, daemon=True).start()
+    if args.cmd_file:
+        threading.Thread(target=emu.cmd_file_loop, args=(args.cmd_file,), daemon=True).start()
 
     print("Эмулятор запущен. help — список команд.")
     while emu.running:

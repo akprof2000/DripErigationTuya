@@ -1,7 +1,7 @@
 // Вкладка «Грядки»: плашки статуса и карточки 8 каналов (влажность, порог, клапан).
 import React from 'react';
 import { View, Text, navigateTo } from '@ray-js/ray';
-import { CHANNELS, Ch, t, bedName, valveTone, faultsOf } from '@/lib/dp';
+import { CHANNELS, Ch, t, bedName, valveTone, isWatering, faultsOf } from '@/lib/dp';
 import { useChannel, useStatus, useBedNames } from '@/lib/hooks';
 import styles from './common.module.less';
 
@@ -18,9 +18,10 @@ function Chip({
 function BedCard({ ch, name }: { ch: Ch; name: string }) {
   const { humidity, valve, mode, border } = useChannel(ch);
   const tone = valveTone(valve);
+  const watering = isWatering(valve);
   return (
     <View
-      className={styles.card}
+      className={`${styles.card} ${watering ? styles.cardWatering : ''}`}
       onClick={() => navigateTo({ url: `/pages/channel/index?ch=${ch}` })}
     >
       <View className={styles.row}>
@@ -32,7 +33,7 @@ function BedCard({ ch, name }: { ch: Ch; name: string }) {
         <View className={styles.barFill} style={{ width: `${humidity}%` }} />
         <View className={styles.barMark} style={{ left: `${border}%` }} />
       </View>
-      <Text className={styles.muted}>
+      <Text className={`${styles.muted} ${watering ? styles.watering : ''}`}>
         {t(`mode_${mode}`)} · {t(`vs_${valve ?? 'init'}`)}
       </Text>
     </View>
@@ -54,7 +55,7 @@ export default function BedsTab() {
       <View className={styles.chips}>
         <Chip text={s.night ? t('night') : t('day')} tone="muted" />
         <Chip text={s.rain ? t('rain') : t('dry')} tone={s.rain ? 'accent' : 'ok'} />
-        {s.pump && <Chip text={t('pump')} tone="accent" />}
+        {s.pumpState !== 'off' && <Chip text={t(`pump_${s.pumpState}`)} tone="accent" />}
         {s.drain && <Chip text={t('drain')} tone="warn" />}
         {s.fill && <Chip text={t('fill')} tone="warn" />}
         {s.flowRate > 0 && <Chip text={`${s.flowRate.toFixed(2)} ${t('lpm')}`} tone="accent" />}
