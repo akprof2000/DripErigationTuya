@@ -1,9 +1,10 @@
 // Вкладка «Настройки»: всё из Config прошивки + режим всех грядок + команды.
 import React from 'react';
-import { View, Text, navigateTo } from '@ray-js/ray';
+import { View, Text, navigateTo, reLaunch } from '@ray-js/ray';
 import { Button, Cell, CellGroup, Dialog, DialogInstance, Stepper, Switch } from '@ray-js/smart-ui';
 import { useActions, useProps } from '@ray-js/panel-sdk';
 import { MODES, t } from '@/lib/dp';
+import { LANGS, Lang, currentLang, setLang } from '@/i18n';
 import styles from './common.module.less';
 
 type BoolCode = 'run_on_rain' | 'run_on_night' | 'flow_monitor' | 'autocal_no_delay';
@@ -31,6 +32,11 @@ export default function SettingsTab() {
       .catch(() => undefined);
 
   const boost = (p.boost_pump_valves as number) ?? 9;
+  const lang = currentLang();
+  const chooseLang = (l: Lang) => {
+    setLang(l);
+    reLaunch({ url: '/pages/home/index' });   // строки читаются при отрисовке — перезапускаем панель
+  };
 
   return (
     <View>
@@ -61,6 +67,21 @@ export default function SettingsTab() {
           {MODES.map(m => (
             <Text key={m} className={styles.segItem} onClick={() => actions.mode_all.set(m)}>
               {t(`mode_${m}`)}
+            </Text>
+          ))}
+        </View>
+      </View>
+
+      <View className={styles.section}>
+        <Text className={styles.sectionTitle}>{t('s_language')}</Text>
+        <View className={styles.segment}>
+          {LANGS.map(l => (
+            <Text
+              key={l}
+              className={`${styles.segItem} ${l === lang ? styles.segActive : ''}`}
+              onClick={() => chooseLang(l)}
+            >
+              {t(`lang_${l}`)}
             </Text>
           ))}
         </View>
