@@ -159,6 +159,15 @@ def gcm_decrypt(key, nonce, ciphertext, tag, aad=b""):
 
 
 # ------------------------------------------------------------------ хеши, base64
+def mem_free():
+    """Свободная куча (MicroPython); в CPython -1."""
+    try:
+        import gc
+        return gc.mem_free()
+    except AttributeError:
+        return -1
+
+
 def md5_hex(data):
     return binascii.hexlify(hashlib.md5(data).digest()).decode()
 
@@ -213,37 +222,90 @@ def ticks_diff(a, b):
 
 
 # ------------------------------------------------------------------ HTTPS
+def _split_url(url):
+    scheme, rest = url.split("://", 1)
+    host, _, path = rest.partition("/")
+    if ":" in host:
+        host, port = host.split(":", 1)
+        port = int(port)
+    else:
+        port = 443 if scheme == "https" else 80
+    return scheme == "https", host, port, "/" + path
+
+
+def http_open(method, url, body=None, headers=None, timeout=15):
+    """HTTP/1.1-запрос (Connection: close). Возвращает (status, headers{lower: str}, Conn, length|None).
+
+    Тело читать через conn.read_exact / conn.s.read; chunked не поддерживается
+    (отвечаем «Accept-Encoding: identity», облако Tuya отдаёт Content-Length).
+    Свой клиент, потому что встроенный requests MicroPython шлёт HTTP/1.0,
+    а iot-dns Tuya отвечает на него 426 Upgrade Required.
+    """
+    tls, host, port, path = _split_url(url)
+    conn = Conn(host, port, timeout=timeout, tls=tls)
+    hdr = {"Host": host, "Connection": "close", "Accept-Encoding": "identity", "User-Agent": "drip-mpy"}
+    if body is not None:
+        hdr["Content-Length"] = str(len(body))
+    if headers:
+        hdr.update(headers)
+    req = "%s %s HTTP/1.1\r\n" % (method, path) + "".join("%s: %s\r\n" % kv for kv in hdr.items()) + "\r\n"
+    conn.write(req.encode() + (body or b""))
+    head = b""
+    while b"\r\n\r\n" not in head:
+        chunk = conn.read_some(512)
+        if not chunk:
+            raise OSError("HTTP: обрыв до конца заголовков")
+        head += chunk
+        if len(head) > 8192:
+            raise OSError("HTTP: заголовки слишком длинные")
+    head, rest = head.split(b"\r\n\r\n", 1)
+    lines = head.decode("utf-8", "ignore").split("\r\n")
+    status = int(lines[0].split(" ")[1])
+    hd = {}
+    for ln in lines[1:]:
+        if ":" in ln:
+            k, v = ln.split(":", 1)
+            hd[k.strip().lower()] = v.strip()
+    conn.unread(rest)
+    length = int(hd["content-length"]) if "content-length" in hd else None
+    return status, hd, conn, length
+
+
 def http_post(url, body, headers):
     """POST → разобранный JSON-ответ."""
-    if MICROPYTHON:
-        import requests
-        r = requests.post(url, data=body, headers=headers)
-        try:
-            return r.json()
-        finally:
-            r.close()
-    import urllib.request
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.loads(r.read().decode("utf-8"))
+    status, hd, conn, length = http_open("POST", url, body, headers)
+    try:
+        data = conn.read_exact(length) if length is not None else conn.read_all()
+    finally:
+        conn.close()
+    if status != 200:
+        raise OSError("HTTP %d: %s" % (status, data[:80]))
+    return json.loads(data.decode("utf-8"))
 
 
 # ------------------------------------------------------------------ TLS-сокет
 class Conn:
-    """TLS-соединение с одинаковым API: write(bytes), read(n) → bytes | None (нет данных)."""
+    """(TLS-)соединение с одинаковым API: write(bytes), read_exact(n), poll_byte(timeout).
 
-    def __init__(self, host, port, timeout=15):
+    Таймауты ставятся на «сырой» сокет: у SSL-сокета MicroPython нет settimeout.
+    """
+
+    def __init__(self, host, port, timeout=15, tls=True):
         addr = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0][-1]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(timeout)
         s.connect(addr)
-        if MICROPYTHON:
+        self.raw = s
+        self._buf = b""
+        if not tls:
+            self.s = s
+        elif MICROPYTHON:
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             ctx.verify_mode = ssl.CERT_NONE   # TODO: CA Tuya во флеш, когда хватит памяти
             self.s = ctx.wrap_socket(s, server_hostname=host)
         else:
             self.s = ssl.create_default_context().wrap_socket(s, server_hostname=host)
-        self.s.settimeout(timeout)
+            self.raw = self.s             # в CPython таймаут ставится на SSL-сокет
 
     def write(self, data):
         if MICROPYTHON:
@@ -254,18 +316,41 @@ class Conn:
         else:
             self.s.sendall(data)
 
+    def unread(self, data):
+        self._buf = data + self._buf
+
+    def read_some(self, n):
+        """До n байт; b"" — соединение закрыто."""
+        if self._buf:
+            out, self._buf = self._buf[:n], self._buf[n:]
+            return out
+        chunk = self.s.read(n) if MICROPYTHON else self.s.recv(n)
+        return chunk or b""
+
     def read_exact(self, n):
         buf = b""
         while len(buf) < n:
-            chunk = self.s.read(n - len(buf)) if MICROPYTHON else self.s.recv(n - len(buf))
+            chunk = self.read_some(n - len(buf))
             if not chunk:
                 raise OSError("соединение закрыто")
             buf += chunk
         return buf
 
+    def read_all(self, limit=65536):
+        buf = b""
+        while len(buf) < limit:
+            chunk = self.read_some(2048)
+            if not chunk:
+                break
+            buf += chunk
+        return buf
+
     def poll_byte(self, timeout):
         """Первый байт пакета, если он пришёл за timeout секунд; иначе None."""
-        self.s.settimeout(timeout)
+        if self._buf:
+            b, self._buf = self._buf[0], self._buf[1:]
+            return b
+        self.raw.settimeout(timeout)
         try:
             b = self.s.read(1) if MICROPYTHON else self.s.recv(1)
         except OSError as e:   # socket.timeout — подкласс OSError; в MicroPython ETIMEDOUT/EAGAIN
@@ -273,7 +358,7 @@ class Conn:
                 return None
             raise
         finally:
-            self.s.settimeout(15)
+            self.raw.settimeout(15)
         if not b:
             if MICROPYTHON and b is None:
                 return None

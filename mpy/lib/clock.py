@@ -49,6 +49,7 @@ class DS3231:
 
 
 class Clock:
+    NTP_RETRY = 60          # с — повтор после неудачи
     NTP_EVERY = 3600          # с — как NTP_SYNC_INTERVAL
 
     def __init__(self, i2c=None, log=print):
@@ -83,6 +84,7 @@ class Clock:
             ntptime.settime()
         except Exception as e:
             self.log("clock: NTP: %s" % e)
+            self._ntp_at = now - self.NTP_EVERY + self.NTP_RETRY   # не долбить сеть каждую секунду
             return False
         self._ntp_at = time.time()
         self.ok = True

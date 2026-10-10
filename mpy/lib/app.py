@@ -52,7 +52,7 @@ class App:
         self.wifi = Wifi(log)
         self.sd = _mount_sd()
         store = self.sd or ROOT
-        self.spec = Spec(ROOT + "/app/dp.json")
+        self.spec = _load_spec()
         self.dev = Device(self.hw, state_path=store + "/state.json", spec=self.spec)
         self.outbox = Outbox(store + "/pending.jsonl")
         self.reporter = Reporter()
@@ -89,11 +89,13 @@ class App:
 
     # ---------------- облако
     def _on_connected(self):
-        log("облако: подключено")
+        pending = self.outbox.count
         self.outbox.flush(self.tuya.push, now=self.clock.unix())
         for p in self.dev.report(full=True):
             self._queue(p, full=True)
         self._sys_at = -SYS_INFO_EVERY
+        gc.collect()
+        log("облако: подключено, из очереди отправлено %d, свободно %d байт" % (pending, gc.mem_free()))
         self._online_since = self.now
         if self.ota:
             self.ota.on_connected()
@@ -122,6 +124,7 @@ class App:
                  "pending": self.outbox.count}
         self._queue({"sys_info": self.dev.sys_info(self.clock.unix(), extra)}, full=True)
         self._sys_at = self.now
+        log("sys_info: свободно %d байт, rssi %s, очередь %d" % (extra["heap"], extra["rssi"], extra["pending"]))
 
     def _shutdown(self):
         """Перед перезагрузкой: всё выключить, настройки сохранить."""
@@ -215,16 +218,18 @@ class App:
                 time.sleep_ms(TICK_MS - spent)
 
 
+def _load_spec():
+    try:
+        import dptab                      # таблица DP, заморожена в прошивке
+        return Spec(table=dptab)
+    except ImportError:                   # симуляция: dp.json в /app
+        return Spec(ROOT + "/app/dp.json")
+
+
 def _mark_boot_ok():
-    try:
-        os.remove(ROOT + "/ota/boots")
-    except OSError:
-        pass
-    try:
-        import ota
-        ota._rmtree(ROOT + "/app_prev")
-    except Exception:
-        pass
+    """Подтвердить загрузчику, что прошивка после OTA рабочая (иначе откат при следующем сбросе)."""
+    import ota
+    ota.confirm(log)
 
 
 def run():

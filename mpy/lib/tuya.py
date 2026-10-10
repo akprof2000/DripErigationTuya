@@ -20,7 +20,7 @@ import json
 import struct
 
 from compat import (gcm_encrypt, gcm_decrypt, aes_decrypt, md5_hex, crc32, random_bytes,
-                    b64encode, b64decode, http_post, unix_time, ticks_ms, ticks_add, ticks_diff)
+                    b64encode, b64decode, http_post, unix_time, ticks_ms, ticks_add, ticks_diff, mem_free)
 from mqtt import MQTT
 
 PV = b"2.3"
@@ -182,8 +182,10 @@ class Tuya:
         self._backoff = min(300, self._backoff * 2)
 
     def _start(self):
+        self.log("tuya: подключение к облаку… (свободно %d байт)" % mem_free())
         ep = endpoints(self.st.get("region"), self.st.get("env", "pro"))
         self.ep = ep
+        self.log("tuya: брокер %s:%s" % (ep["mqtt"], ep["port"]))
         if not self.activated:
             self.mq = MQTT(ep["mqtt"], ep["port"], "acon_" + self.uuid,
                            "acon_%s|pv=%s" % (self.uuid, PV.decode()),

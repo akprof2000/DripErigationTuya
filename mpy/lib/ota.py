@@ -1,47 +1,39 @@
-"""ota.py — обновление прошивки через облако Tuya (как в TuyaOpen, без OTA-разделов).
+"""ota.py — обновление прошивки через облако Tuya на два OTA-раздела ESP32.
 
-«Прошивка» для MicroPython — пакет .mpk: все файлы /app (логика, клиент
-облака, драйверы) и dp.json. Его загружают в консоль Tuya как версию
-прошивки продукта; дальше всё делает облако:
+Прошивка — образ MicroPython с замороженным кодом контроллера
+(`micropython.bin` из tools/build_fw.py). Его загружают в консоль Tuya как
+версию прошивки продукта; дальше всё делает облако:
   1. пользователь нажимает «Обновить» в Smart Life (или включено
      автообновление, тогда облако присылает задание само) → по MQTT приходит
      протокол 15 (PRO_UPGD_REQ) с firmwareType;
   2. устройство запрашивает tuya.device.upgrade.get → httpsUrl, size, md5,
      version; отвечает статусом 2 «обновляюсь» (tuya.device.upgrade.status.update);
-  3. качает файл кусками на SD/флеш, шлёт прогресс (протокол 16), проверяет
-     md5 и размер, распаковывает в /app_new, пишет /ota/apply.json;
-  4. статус 3 «готово» и перезагрузка; main.py меняет /app_new → /app, а
-     старую версию держит в /app_prev для отката, если новая не стартует;
-  5. после подключения новая версия сообщает облаку свои версии
-     (tuya.device.versions.update) — в приложении пропадает «доступно обновление».
+  3. образ пишется блоками по 4 КБ прямо в свободный OTA-раздел, прогресс —
+     протокол 16, md5 считается на лету; пишется /ota/apply.json;
+  4. раздел назначается загрузочным, перезагрузка. Загрузчик ESP-IDF ждёт
+     подтверждения (confirm() — app.py даёт его, побыв минуту онлайн); если
+     новая прошивка упала или перезагрузилась раньше — автоматический откат
+     на прежний раздел;
+  5. после подключения новая версия сообщает облаку статус 3 «готово» и свои
+     версии (tuya.device.versions.update) — в приложении пропадает
+     «доступно обновление».
 При старте также спрашиваем tuya.device.upgrade.silent.get: так подхватывается
 автообновление, назначенное, пока устройство было выключено.
-
-Формат .mpk (tools/build_fw.py):
-  строка "MPK1", строка JSON {"version":…, "files":[{"path","size","sha256"}…]},
-  затем содержимое файлов подряд в порядке списка.
 """
+import binascii
 import hashlib
 import json
 import os
 
-from compat import b64encode  # noqa: F401  (на случай отладки) — основной код ниже
+from compat import http_open
 
-MAGIC = b"MPK1\n"
 OTA_DIR = "/ota"
-PKG = OTA_DIR + "/fw.mpk"
 APPLY = OTA_DIR + "/apply.json"
-NEW_DIR = "/app_new"
-CHUNK = 2048
+BLOCK = 4096                     # блок OTA-раздела
 
 # статусы tuya.device.upgrade.status.update (tuya_ota.h)
 ST_UPGRADING, ST_DONE, ST_FAILED = 2, 3, 4
 ST_DOWNLOAD_START, ST_DOWNLOAD_DONE, ST_DOWNLOAD_ERROR = 10, 11, 40
-
-
-def _hexdigest(h):
-    import binascii
-    return binascii.hexlify(h.digest()).decode()
 
 
 def _mkdirs(path):
@@ -50,9 +42,8 @@ def _mkdirs(path):
     if makedirs:                       # CPython (тесты на ПК)
         makedirs(path, exist_ok=True)
         return
-    parts = path.strip("/").split("/")
     cur = ""
-    for p in parts:
+    for p in path.strip("/").split("/"):
         cur += "/" + p
         try:
             os.mkdir(cur)
@@ -60,63 +51,21 @@ def _mkdirs(path):
             pass
 
 
-def _rmtree(path):
+def confirm(log=print):
+    """Подтвердить загрузчику, что текущая прошивка рабочая (отменить откат)."""
     try:
-        for name, kind, *_ in os.ilistdir(path):
-            full = path + "/" + name
-            if kind & 0x4000:
-                _rmtree(full)
-            else:
-                os.remove(full)
-        os.rmdir(path)
-    except (OSError, AttributeError):
-        # CPython (тесты): ilistdir нет
-        import shutil
-        shutil.rmtree(path, ignore_errors=True)
+        from esp32 import Partition
+        Partition.mark_app_valid_cancel_rollback()
+    except ImportError:                # симуляция
+        pass
+    except Exception as e:             # не в состоянии «ждёт подтверждения» — это норма
+        log("ota: confirm: %s" % e)
 
 
-def read_header(f):
-    """Файл .mpk (открыт в 'rb', позиция 0) → dict заголовка; f остаётся на начале данных."""
-    if f.read(len(MAGIC)) != MAGIC:
-        raise ValueError("не .mpk")
-    line = f.readline()
-    return json.loads(line)
-
-
-def unpack(pkg_path, dest):
-    """Распаковать пакет в каталог dest с проверкой sha256 каждого файла. → version."""
-    _rmtree(dest)
-    _mkdirs(dest)
-    with open(pkg_path, "rb") as f:
-        hdr = read_header(f)
-        for item in hdr["files"]:
-            path = dest + "/" + item["path"]
-            if "/" in item["path"]:
-                _mkdirs(path.rsplit("/", 1)[0])
-            h = hashlib.sha256()
-            left = item["size"]
-            with open(path, "wb") as out:
-                while left > 0:
-                    chunk = f.read(min(CHUNK, left))
-                    if not chunk:
-                        raise ValueError("пакет оборван: " + item["path"])
-                    out.write(chunk)
-                    h.update(chunk)
-                    left -= len(chunk)
-            if _hexdigest(h) != item["sha256"]:
-                raise ValueError("sha256 не сошёлся: " + item["path"])
-    return hdr["version"]
-
-
-def md5_of_file(path):
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        while True:
-            chunk = f.read(CHUNK)
-            if not chunk:
-                break
-            h.update(chunk)
-    return _hexdigest(h)
+def target_partition():
+    """Свободный OTA-раздел (куда писать образ)."""
+    from esp32 import Partition
+    return Partition(Partition.RUNNING).get_next_update()
 
 
 class Ota:
@@ -155,6 +104,8 @@ class Ota:
             if res and res.get("httpsUrl"):
                 self.log("ota: есть тихое обновление до %s" % res.get("version"))
                 self._run(res)
+            else:
+                self.log("ota: версия %s доложена, обновлений нет" % self.version)
         except Exception as e:
             self.log("ota: on_connected: %s" % e)
 
@@ -186,51 +137,64 @@ class Ota:
         self._busy = True
         ch = int(info.get("type", 0))
         try:
-            self.log("ota: %s → %s, %s байт" % (self.version, info.get("version"), info.get("size")))
+            size = int(info["size"])
+            self.log("ota: %s → %s, %s байт" % (self.version, info.get("version"), size))
+            part = target_partition()
+            if size > part.info()[3]:
+                raise ValueError("образ %d байт не влезает в раздел %s" % (size, part.info()[4]))
             self._status(ch, ST_UPGRADING)
             self._status(ch, ST_DOWNLOAD_START)
-            self._download(info["httpsUrl"], int(info["size"]), ch)
-            if info.get("md5") and md5_of_file(PKG) != info["md5"].lower():
-                raise ValueError("md5 пакета не сошёлся")
+            md5 = self._download(info["httpsUrl"], size, part, ch)
+            if info.get("md5") and md5 != info["md5"].lower():
+                raise ValueError("md5 образа не сошёлся")
             self._status(ch, ST_DOWNLOAD_DONE)
-            version = unpack(PKG, NEW_DIR)
             _mkdirs(OTA_DIR)
             with open(APPLY, "w") as f:
-                json.dump({"version": version, "type": ch}, f)
+                json.dump({"version": info.get("version"), "type": ch}, f)
             self._progress(ch, 100)
-            self.log("ota: пакет %s распакован, перезагрузка" % version)
+            self.log("ota: образ записан в %s, перезагрузка" % part.info()[4])
             if self.on_before_reboot:
                 self.on_before_reboot()
+            part.set_boot()
             import machine
             machine.reset()
         except Exception as e:
             self.log("ota: ошибка: %s" % e)
             self._status(ch, ST_DOWNLOAD_ERROR)
             self._status(ch, ST_FAILED)
-            _rmtree(NEW_DIR)
         finally:
             self._busy = False
 
-    def _download(self, url, size, ch):
-        import requests
-        _mkdirs(OTA_DIR)
-        r = requests.get(url, stream=True)
-        if r.status_code != 200:
-            raise OSError("HTTP %s" % r.status_code)
-        got, last_pct = 0, -1
+    def _download(self, url, size, part, ch):
+        """Скачать образ в раздел блоками по 4 КБ. → md5 (hex)."""
+        status, _, conn, _ = http_open("GET", url, timeout=30)
+        if status != 200:
+            conn.close()
+            raise OSError("HTTP %s" % status)
+        h = hashlib.md5()
+        buf = bytearray(BLOCK)
+        mv = memoryview(buf)
+        got, block, last_pct = 0, 0, -1
         try:
-            with open(PKG, "wb") as f:
-                while got < size:
-                    chunk = r.raw.read(min(CHUNK, size - got))
+            while got < size:
+                n = 0
+                while n < BLOCK and got + n < size:        # набрать полный блок
+                    chunk = conn.read_some(min(BLOCK - n, size - got - n))
                     if not chunk:
-                        break
-                    f.write(chunk)
-                    got += len(chunk)
-                    pct = got * 100 // size
-                    if pct - last_pct >= 10:
-                        last_pct = pct
-                        self._progress(ch, min(pct, 99))
+                        raise OSError("скачано %d из %d байт" % (got + n, size))
+                    mv[n:n + len(chunk)] = chunk
+                    n += len(chunk)
+                h.update(mv[:n])
+                if n < BLOCK:
+                    for i in range(n, BLOCK):
+                        buf[i] = 0xFF
+                part.writeblocks(block, buf)
+                block += 1
+                got += n
+                pct = got * 100 // size
+                if pct - last_pct >= 10:
+                    last_pct = pct
+                    self._progress(ch, min(pct, 99))
         finally:
-            r.close()
-        if got != size:
-            raise OSError("скачано %d из %d байт" % (got, size))
+            conn.close()
+        return binascii.hexlify(h.digest()).decode()

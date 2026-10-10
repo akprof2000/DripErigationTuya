@@ -12,3 +12,4 @@ panel/typings/tuya*/
 emulator/pending.jsonl
 emulator/cmd.txt
 firmware/dist/
+firmware/mpy-image/

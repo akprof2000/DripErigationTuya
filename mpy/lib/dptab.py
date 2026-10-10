@@ -1,0 +1,36 @@
+"""dptab.py — таблица DP из spec/dp.json. Сгенерировано tools/gen_dptab.py, руками не править."""
+CHANNELS = 8
+ENUMS = {'mode': ('auto', 'on', 'off', 'greenhouse'), 'valve_state': ('init', 'open_hum', 'close_hum', 'hyst', 'forced_open', 'forced_close'), 'command': ('restart', 'reset_settings', 'clear_flow', 'filter_cleaned', 'drain'), 'pump_state': ('off', 'start', 'valves', 'drain')}
+# поля строки: id, code, type, mode, min, max, scale, range, labels, maxlen, per_channel, name, unit, default
+DPS = (
+    (101, 'rain', 'bool', 'ro', 0, 0, 0, None, (), 255, False, 'Дождь', '', None),
+    (102, 'night', 'bool', 'ro', 0, 0, 0, None, (), 255, False, 'Ночь', '', None),
+    (103, 'pump', 'bool', 'ro', 0, 0, 0, None, (), 255, False, 'Насос включён', '', None),
+    (104, 'drain', 'bool', 'ro', 0, 0, 0, None, (), 255, False, 'Идёт пролив дренажа', '', None),
+    (105, 'fill', 'bool', 'ro', 0, 0, 0, None, (), 255, False, 'Идёт заливка бака', '', None),
+    (106, 'flow_rate', 'value', 'ro', 0, 100000, 3, None, (), 255, False, 'Скорость потока', 'л/мин', None),
+    (107, 'flow_session', 'value', 'ro', 0, 10000000, 2, None, (), 255, False, 'Расход за сессию', 'л', None),
+    (108, 'flow_total', 'value', 'ro', 0, 100000000, 1, None, (), 255, False, 'Расход всего', 'л', None),
+    (109, 'fault', 'fault', 'ro', 0, 0, 0, None, ('rtc', 'sd', 'valves', 'filter_clog'), 255, False, 'Неисправности', '', None),
+    (110, 'filter_baseline', 'value', 'ro', 0, 100000, 3, None, (), 255, False, 'Эталон потока на клапан', 'л/мин', None),
+    (111, 'run_on_rain', 'bool', 'rw', 0, 0, 0, None, (), 255, False, 'Работать в дождь', '', True),
+    (112, 'run_on_night', 'bool', 'rw', 0, 0, 0, None, (), 255, False, 'Работать ночью', '', False),
+    (113, 'delta_hum', 'value', 'rw', 0, 50, 0, None, (), 255, False, 'Гистерезис влажности', '%', 5),
+    (114, 'delta_calib', 'value', 'rw', 0, 500, 0, None, (), 255, False, 'Дельта калибровки', 'АЦП', 15),
+    (115, 'boost_pump_valves', 'value', 'rw', 1, 9, 0, None, (), 255, False, 'Насос давления: от N клапанов (9 = выкл)', '', 9),
+    (116, 'clog_threshold', 'value', 'rw', 10, 95, 0, None, (), 255, False, 'Порог засора фильтра', '%', 50),
+    (117, 'flow_monitor', 'bool', 'rw', 0, 0, 0, None, (), 255, False, 'Контроль засора фильтра', '', True),
+    (118, 'autocal_no_delay', 'bool', 'rw', 0, 0, 0, None, (), 255, False, 'Авто-калибровка без задержки', '', False),
+    (119, 'command', 'enum', 'wr', 0, 0, 0, 'command', (), 255, False, 'Команда', '', None),
+    (120, 'mode_all', 'enum', 'wr', 0, 0, 0, 'mode', (), 255, False, 'Режим всех каналов', '', None),
+    (121, 'wizard', 'string', 'wr', 0, 0, 0, None, (), 255, False, 'Мастер: команда (JSON)', '', None),
+    (122, 'wizard_state', 'string', 'ro', 0, 0, 0, None, (), 255, False, 'Мастер: состояние (JSON)', '', None),
+    (123, 'adc_raw', 'raw', 'ro', 0, 0, 0, None, (), 255, False, 'АЦП каналов: 8 × (тек, мин, макс), uint16 BE', '', None),
+    (124, 'event', 'string', 'ro', 0, 0, 0, None, (), 255, False, 'Событие (JSON с кодом, лента вместо уведомлений Telegram)', '', None),
+    (125, 'pump_state', 'enum', 'ro', 0, 0, 0, 'pump_state', (), 255, False, 'Насос давления: причина работы (off — выключен, start — пусковые 30 с, valves — по порогу открытых клапанов, drain — пролив дренажа)', '', None),
+    (126, 'sys_info', 'string', 'ro', 0, 0, 0, None, (), 255, False, 'О контроллере (JSON): fw, up — аптайм с, heap — свободно байт, rssi, t — время устройства, rtc/sd — 1/0, pulses — импульсов расходомера, last_pulse — с назад (-1 если не было), pending — записей в офлайн-очереди', '', None),
+    (130, 'humidity', 'value', 'ro', 0, 100, 0, None, (), 255, True, 'Влажность', '%', None),
+    (140, 'valve', 'enum', 'ro', 0, 0, 0, 'valve_state', (), 255, True, 'Клапан', '', None),
+    (150, 'mode', 'enum', 'rw', 0, 0, 0, 'mode', (), 255, True, 'Режим', '', 'auto'),
+    (160, 'border', 'value', 'rw', 0, 100, 0, None, (), 255, True, 'Порог влажности', '%', 60),
+)

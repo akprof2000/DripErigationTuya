@@ -27,7 +27,7 @@ with open(ROOT + "/tuya.json", "w") as f:
 import wifi
 wifi.CONF = ROOT + "/wifi.json"
 import ota
-ota.OTA_DIR, ota.PKG, ota.APPLY, ota.NEW_DIR = ROOT + "/ota", ROOT + "/ota/fw.mpk", ROOT + "/ota/apply.json", ROOT + "/app_new"
+ota.OTA_DIR, ota.APPLY = ROOT + "/ota", ROOT + "/ota/apply.json"
 import app
 app.ROOT = ROOT
 app.MAX_TICKS = int(sys.argv[1]) if len(sys.argv) > 1 else 5

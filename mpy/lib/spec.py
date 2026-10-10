@@ -31,40 +31,51 @@ def utf8_cut(s, maxlen):
     return b[:n].decode("utf-8")
 
 
+# Поля строки таблицы DP: одинаковы у разбора dp.json и у замороженного dptab.py
+ROW = ("id", "code", "type", "mode", "min", "max", "scale", "range", "labels", "maxlen",
+       "per_channel", "name", "unit", "default")
+
+
+def row_from_json(d):
+    return (d["id"], d["code"], d["type"], d["mode"], d.get("min", 0), d.get("max", 0), d.get("scale", 0),
+            d.get("range"), tuple(d.get("labels", [])), d.get("maxlen", 255), bool(d.get("per_channel")),
+            d["name"], d.get("unit", ""), d.get("default"))
+
+
 class Dp:
     __slots__ = ("id", "code", "type", "mode", "name", "channel", "min", "max",
                  "scale", "unit", "range", "labels", "maxlen", "default")
 
-    def __init__(self, d, dp_id, code, ch, enums):
+    def __init__(self, row, dp_id, code, ch, enums):
+        (_, _, self.type, self.mode, self.min, self.max, self.scale, rng, self.labels,
+         self.maxlen, _, name, self.unit, self.default) = row
         self.id = dp_id
         self.code = code
-        self.type = d["type"]          # bool | value | enum | string | raw | bitmap | fault
-        self.mode = d["mode"]          # ro | rw | wr
-        self.name = d["name"] + (" %d" % ch if ch else "")
         self.channel = ch              # 1..8 для канальных DP, 0 — глобальный
-        self.min = d.get("min", 0)
-        self.max = d.get("max", 0)
-        self.scale = d.get("scale", 0)
-        self.unit = d.get("unit", "")
-        self.range = enums.get(d.get("range"), [])
-        self.labels = d.get("labels", [])
-        self.maxlen = d.get("maxlen", 255)
-        self.default = d.get("default")
+        self.name = name + (" %d" % ch if ch else "")
+        self.range = enums.get(rng, ())
 
 
 class Spec:
-    def __init__(self, path=None):
-        with open(path or default_path(), encoding="utf-8") as f:
-            raw = json.load(f)
-        self.channels = raw["product"]["channels"]
-        self.enums = raw["enums"]
+    def __init__(self, path=None, table=None):
+        """table — модуль dptab (плата, таблица во флеше); иначе читается dp.json."""
+        if table is not None:
+            channels, enums, rows = table.CHANNELS, table.ENUMS, table.DPS
+        else:
+            with open(path or default_path(), encoding="utf-8") as f:
+                raw = json.load(f)
+            channels = raw["product"]["channels"]
+            enums = {k: tuple(v) for k, v in raw["enums"].items()}
+            rows = [row_from_json(d) for d in raw["dps"]]
+        self.channels = channels
+        self.enums = enums
         self.dps = []
-        for d in raw["dps"]:
-            if d.get("per_channel"):
-                for n in range(1, self.channels + 1):
-                    self.dps.append(Dp(d, d["id"] + n, "%s_%d" % (d["code"], n), n, self.enums))
+        for r in rows:
+            if r[10]:
+                for n in range(1, channels + 1):
+                    self.dps.append(Dp(r, r[0] + n, "%s_%d" % (r[1], n), n, enums))
             else:
-                self.dps.append(Dp(d, d["id"], d["code"], 0, self.enums))
+                self.dps.append(Dp(r, r[0], r[1], 0, enums))
         self.by_id = {d.id: d for d in self.dps}
         self.by_code = {d.code: d for d in self.dps}
         assert len(self.by_id) == len(self.dps), "повтор DP id в spec/dp.json"

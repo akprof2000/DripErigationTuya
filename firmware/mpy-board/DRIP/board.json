@@ -1,0 +1,10 @@
+{
+    "deploy": ["../deploy.md"],
+    "docs": "",
+    "features": ["WiFi"],
+    "id": "drip-irrigation",
+    "mcu": "esp32",
+    "product": "Drip Irrigation ESP32",
+    "url": "",
+    "vendor": "DIY"
+}

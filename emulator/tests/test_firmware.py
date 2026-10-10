@@ -1,4 +1,4 @@
-"""Прошивочные модули без платы: фильтр отчётов, пакет OTA, драйверы на заглушках machine."""
+"""Прошивочные модули без платы: фильтр отчётов, таблица DP, драйверы на заглушках machine."""
 import json
 import os
 import sys
@@ -12,8 +12,8 @@ sys.path.insert(0, str(ROOT / "mpy" / "lib"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from reporter import Reporter  # noqa: E402
-import ota  # noqa: E402
-import build_fw  # noqa: E402
+import gen_dptab  # noqa: E402
+import spec  # noqa: E402
 
 
 class ReporterTest(unittest.TestCase):
@@ -39,25 +39,23 @@ class ReporterTest(unittest.TestCase):
         self.assertEqual(r.filter({"adc_raw": b"\x03"}, 600), {"adc_raw": b"\x03"})
 
 
-class OtaBundleTest(unittest.TestCase):
-    def test_build_and_unpack(self):
-        tmp = Path(tempfile.mkdtemp())
-        pkg = build_fw.build("9.9.9", tmp / "fw.mpk")
-        dest = tmp / "app_new"
-        self.assertEqual(ota.unpack(str(pkg), str(dest)), "9.9.9")
-        self.assertTrue((dest / "device.py").exists())
-        self.assertTrue((dest / "dp.json").exists())
-        self.assertEqual((dest / "device.py").read_bytes(), (ROOT / "mpy" / "lib" / "device.py").read_bytes())
-        self.assertEqual(json.loads((dest / "dp.json").read_text(encoding="utf-8"))["product"]["channels"], 8)
-
-    def test_corrupted_package_rejected(self):
-        tmp = Path(tempfile.mkdtemp())
-        pkg = build_fw.build("9.9.9", tmp / "fw.mpk")
-        data = bytearray(pkg.read_bytes())
-        data[-1] ^= 0xFF
-        pkg.write_bytes(data)
-        with self.assertRaises(ValueError):
-            ota.unpack(str(pkg), str(tmp / "app_new"))
+class DpTableTest(unittest.TestCase):
+    def test_frozen_table_matches_json(self):
+        """dptab.py (на плате) описывает те же DP, что spec/dp.json (эмулятор), и не устарел."""
+        src = gen_dptab.render()
+        self.assertEqual((ROOT / "mpy" / "lib" / "dptab.py").read_text(encoding="utf-8"), src,
+                         "запустите python tools/gen_dptab.py")
+        ns = {}
+        exec(src, ns)
+        tab = types.SimpleNamespace(CHANNELS=ns["CHANNELS"], ENUMS=ns["ENUMS"], DPS=ns["DPS"])
+        a = spec.Spec(str(ROOT / "spec" / "dp.json"))
+        b = spec.Spec(table=tab)
+        self.assertEqual(sorted(a.by_code), sorted(b.by_code))
+        for code, dp in a.by_code.items():
+            for f in spec.Dp.__slots__:
+                self.assertEqual(getattr(dp, f), getattr(b.by_code[code], f), "%s.%s" % (code, f))
+        self.assertEqual(b.encode("humidity_3", 42.6), 43)
+        self.assertEqual(b.decode(119, "drain"), ("command", "drain"))
 
 
 # ---------------- заглушка machine для hw.py / clock.py
