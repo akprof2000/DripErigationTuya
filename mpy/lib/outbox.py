@@ -61,9 +61,13 @@ class Outbox:
             f.write(_dumps(rec) + "\n")
         self.count += 1
 
-    def flush(self, push):
+    def flush(self, push, now=None, fresh_sec=60):
         """push(dps, t) → bool. Отправляет записи по порядку; при первом отказе
-        останавливается, неотправленное остаётся. Возвращает число отправленных."""
+        останавливается, неотправленное остаётся. Возвращает число отправленных.
+
+        Свежие записи (моложе fresh_sec относительно now) уходят без метки
+        времени — облако само ставит точное время приёма; метка нужна только
+        тому, что пролежало в очереди."""
         sent = 0
         rest = []
         try:
@@ -81,7 +85,10 @@ class Outbox:
                 dps = {}
                 for k, v in rec["dps"].items():
                     dps[k] = _unhex(v["hex"]) if isinstance(v, dict) and "hex" in v else v
-                ok = push(dps, rec["t"])
+                t = rec["t"]
+                if now is not None and now - t < fresh_sec:
+                    t = None
+                ok = push(dps, t)
             except (ValueError, KeyError, TypeError):
                 ok = True          # битая строка — выбрасываем
             if ok:

@@ -101,10 +101,15 @@ class OutboxTest(unittest.TestCase):
         ob.put({124: '{"t":"rain_start"}'}, 1002)
         self.assertEqual(Outbox(self.path).count, 3)   # переживает перезапуск
         sent = []
-        self.assertEqual(ob.flush(lambda dps, t: sent.append((dps, t)) or True), 3)
-        self.assertEqual([t for _, t in sent], [1000, 1001, 1002])
+        self.assertEqual(ob.flush(lambda dps, t: sent.append((dps, t)) or True, now=1030), 3)
+        self.assertEqual([t for _, t in sent], [None, None, None])   # всё свежее — без метки
         self.assertEqual(sent[1][0]["123"], b"\x01\x02")
         self.assertEqual(ob.count, 0)
+        sent.clear()
+        ob.put({131: 41}, 1000)
+        ob.put({131: 42}, 2000)
+        ob.flush(lambda dps, t: sent.append((dps, t)) or True, now=2030)
+        self.assertEqual([t for _, t in sent], [1000, None])         # старое — с меткой
 
     def test_partial_failure_keeps_rest(self):
         ob = Outbox(self.path)

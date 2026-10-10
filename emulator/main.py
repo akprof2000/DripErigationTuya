@@ -102,7 +102,7 @@ class Emulator:
             self.client.loop()
             if self.client.online and self.outbox.count:
                 was = self.outbox.count
-                n = self.outbox.flush(self.client.push)   # накопленное — с меткой времени
+                n = self.outbox.flush(self.client.push, now=self.unix)   # залежавшееся — с меткой времени
                 if was > 3:   # онлайн очередь почти пуста; много записей — значит, была пауза связи
                     log.info("→ облако: отправлено %d отчётов из очереди, осталось %d", n, self.outbox.count)
             time.sleep(0.05)
@@ -111,7 +111,7 @@ class Emulator:
         log.info("облако: подключено")
         with self.lock:
             # сначала очередь (история задним числом), потом полный снимок «сейчас»
-            self.outbox.flush(self.client.push)
+            self.outbox.flush(self.client.push, now=self.unix)
             for p in self.dev.report(full=True):
                 self.push(p)
             self.push_sys_info()
