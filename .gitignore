@@ -13,3 +13,7 @@ emulator/pending.jsonl
 emulator/cmd.txt
 firmware/dist/
 firmware/mpy-image/
+
+# прошивка C++ (PlatformIO): сборка и секреты для файловой системы
+firmware/esp32/.pio/
+firmware/esp32/data/

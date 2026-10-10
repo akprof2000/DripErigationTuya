@@ -1,82 +1,60 @@
-# Прошивка на MicroPython (ESP32 DevKitC)
+# Прошивка контроллера (C++, PlatformIO, ESP32 DevKitC)
 
-Логика полива одна и та же в эмуляторе и на плате — `mpy/lib/device.py`.
-На плате к ней добавляются драйверы и сервисы:
+С версии 1.1.0 прошивка написана на C++ (Arduino-фреймворк, проект `firmware/esp32`):
+на ESP32 без PSRAM MicroPython оставлял ~85 КБ памяти после подключения к облаку,
+C++ даёт вдвое больше и не упирается в память при расширении функций.
+Логика полива та же, что в эмуляторе (`mpy/lib/device.py`) и в старой прошивке
+(`DripIrrigation-Cloud/DripIrrigation`): перенос модуль в модуль.
 
-| Файл | Что делает |
+| Файл (`firmware/esp32/src`) | Что делает |
 |---|---|
-| `mpy/boot.py`, `mpy/main.py` | запуск `app`; при исключении — перезагрузка (новая прошивка после OTA тогда откатится) |
-| `mpy/lib/app.py` | главный цикл: раз в секунду тик логики, отчёты, Wi-Fi, облако, OTA, кнопка, светодиод |
-| `mpy/lib/hw.py` | железо: мультиплексор датчиков + АЦП, PCF8574 (клапаны), реле насоса/дренажа/заливки, датчики дождя и света, расходомер на прерывании |
-| `mpy/lib/clock.py` | DS3231 + NTP |
-| `mpy/lib/wifi.py` | подключение к сети, портал настройки (точка доступа, captive DNS, страница со списком сетей) |
-| `mpy/lib/tuya.py`, `mqtt.py`, `compat.py` | облако Tuya (протокол TuyaOpen 2.3, AES-GCM) |
-| `mpy/lib/outbox.py` | очередь отчётов на время без связи |
-| `mpy/lib/reporter.py` | фильтр отчётов: не больше ~3500 в сутки |
-| `mpy/lib/dptab.py` | таблица DP (из `spec/dp.json`, `tools/gen_dptab.py`) — во флеше, не в ОЗУ |
-| `firmware/mpy-board/` | описание платы для сборки MicroPython (без BLE, OTA-разделы, заморозка `mpy/lib`) |
-| `mpy/lib/ota.py` | обновление через облако Tuya: образ во второй OTA-раздел |
+| `main.cpp`, `app.cpp` | главный цикл: раз в секунду тик логики, отчёты, Wi-Fi, облако, OTA, кнопка, светодиод |
+| `hw.cpp` | железо: мультиплексор датчиков + АЦП, PCF8574 (клапаны), реле насоса/дренажа/заливки, датчики дождя и света, расходомер на прерывании |
+| `clock.cpp` | DS3231 + NTP (SNTP ядра, раз в час) |
+| `wifi_portal.cpp` | подключение к сети, портал настройки (точка доступа, captive DNS, список сетей) |
+| `device.cpp`, `flowmon.cpp` | логика полива, мастера калибровки/поиска, контроль засора фильтра |
+| `dp.cpp`, `include/dptab.h` | таблица DP (генерируется из `spec/dp.json` скриптом `tools/gen_dptab.py`) и кодирование значений |
+| `tuya.cpp`, `mqtt.cpp`, `http.cpp`, `tuya_crypto.cpp` | облако Tuya (протокол TuyaOpen 2.3, AES-GCM, mbedtls) |
+| `outbox.cpp`, `reporter.cpp` | очередь отчётов на время без связи; фильтр ≤ ~3500 отчётов в сутки |
+| `ota.cpp` | обновление через облако Tuya во второй OTA-раздел (откат загрузчиком) |
+| `storage.cpp`, `config.cpp` | LittleFS (лицензия, Wi-Fi, привязка) и SD (настройки `/state.json`, очередь) |
 
 Пины — как в `pins.h` старой прошивки: мультиплексор 12/13/14 → АЦП 33, дождь 15
 (замкнут = дождь), свет 4 (HIGH = ночь), заливка 17, дренаж 25, насос 26,
 расходомер 27, кнопка 16, светодиод 2, I2C 21/22 (PCF8574 0x20, DS3231 0x68),
 SD на VSPI с CS 5.
 
-## Сборка прошивки
+## Сборка и заливка
 
-Прошивка — свой образ MicroPython v1.26 (плата `firmware/mpy-board/DRIP`): весь код
-`mpy/lib` и `main.py` заморожены во флеш (на ESP32 без PSRAM это экономит ~50 КБ
-ОЗУ, без него TLS к облаку Tuya не поднимается), Bluetooth выключен, два OTA-раздела
-по 1,5 МБ, файловая система — остаток флеша.
+PlatformIO ставится в `.venv` (`pip install platformio`, см. `emulator/requirements.txt`);
+платформу espressif32 и тулчейн он скачивает сам при первой сборке.
 
-Собирается в WSL Ubuntu: `python tools/build_fw.py` (перед сборкой обновляет
-`mpy/lib/dptab.py` — таблицу DP из `spec/dp.json`). Результат в `firmware/dist`:
+```bash
+python tools/deploy.py --build                              # firmware/dist/drip_<версия>.bin для OTA
+python tools/deploy.py --port COM8 --upload                 # прошить приложение (файлы на плате остаются)
+python tools/deploy.py --port COM8 --fs --creds --wifi "Сеть" пароль [--state]
+python tools/deploy.py --port COM8 --monitor                # консоль платы
+```
 
-- `drip_<версия>.bin` — образ приложения: его грузят в консоль Tuya как версию прошивки (OTA);
-- `drip_<версия>_full.bin` — полный образ (загрузчик + разделы + приложение) для esptool.
+`--fs` пишет образ LittleFS: `/tuya.json` (лицензия TuyaOpen из `emulator/tuya.json`),
+`/wifi.json`, с `--state` — `/tuya_state.json` из `emulator/tuya_storage.json` (плата
+становится тем же устройством, что эмулятор, без перепривязки). Образ заменяет всю
+LittleFS: без SD-карты пропадут `/state.json` и очередь отчётов. Без `/wifi.json` плата
+поднимает портал настройки: точка доступа `DripIrrigation-XXXX` (пароль `irrigation`),
+телефон сам предлагает «войти в сеть», иначе `http://192.168.4.1`.
 
-Что нужно в WSL один раз (`firmware/mpy-board/build.sh` ждёт именно эти пути):
-ESP-IDF v5.4 из TuyaOpen (`~/TuyaOpen/platform/ESP32/esp-idf`, инструменты в
-`.espressif`, Python 3.12 в `~/TuyaOpen/.tools`), клон MicroPython v1.26.x в
-`~/micropython` с собранным `mpy-cross` и подмодулями (`make -C ports/esp32 submodules`).
-
-## Первая заливка
-
-1. Прошить плату (нужны `esptool` и `mpremote` из `emulator/requirements.txt`):
-   ```bash
-   python tools/deploy.py --port COM5 --flash
-   ```
-   (стирает флеш и пишет `firmware/dist/drip_<версия>_full.bin`).
-2. Положить лицензию и, если известна сеть, Wi-Fi:
-   ```bash
-   python tools/deploy.py --port COM5 --creds --wifi "Моя сеть" пароль
-   ```
-   (`--creds` кладёт `emulator/tuya.json` — pid, uuid, authkey лицензии TuyaOpen;
-   без `--wifi` плата поднимет портал настройки.)
-3. Включить плату. Без сохранённой сети (или с зажатой кнопкой) поднимется точка
-   доступа `DripIrrigation-XXXX` (пароль `irrigation`): телефон сам предложит
-   «войти в сеть» (captive portal), иначе открыть `http://192.168.4.1` — выбрать
-   сеть из списка (или ввести имя) и пароль. Плата перезагрузится и подключится.
-4. Привязать в Smart Life: «+» → сканер → QR из `python tools/bind_qr.py`
-   (ссылка печатается и в консоль платы: `mpremote connect COM5 repl`).
-
-Лицензия в `/tuya.json`, состояние привязки в `/tuya_state.json`, настройки
-полива в `/sd/state.json` (без карты — `/state.json`), очередь отчётов —
-`pending.jsonl` там же.
-
-Правка без пересборки: `python tools/deploy.py --port COM5 --dev` кладёт `mpy/lib/*.py`
-в `/app`, и они перекрывают замороженные модули (`--clean` убирает). Для отладки
-годится, но такие модули живут в ОЗУ — с несколькими сразу памяти под TLS не хватит.
+Плата без схемы автопрограммирования: перед заливкой зажать BOOT и нажать EN.
+Версия прошивки — `FW_VERSION` в `platformio.ini` (build_flags).
 
 ## Обновление (OTA)
 
-1. Поднять `FW_VERSION` в `mpy/lib/device.py`, собрать: `python tools/build_fw.py`
-   (печатает md5 и размер `drip_<версия>.bin`).
+1. Поднять `FW_VERSION` в `platformio.ini`, собрать: `python tools/deploy.py --build`
+   (печатает md5 и размер `firmware/dist/drip_<версия>.bin`).
 2. В консоли Tuya у прошивки продукта добавить версию: файл `drip_<версия>.bin`
    в поле **Firmware Updates** (UG), включить версию.
 3. Пользователь в Smart Life нажимает «Обновить» (или включено автообновление
    устройства) → облако присылает задание, плата качает образ прямо во второй
-   OTA-раздел, сверяет md5, назначает его загрузочным и перезагружается.
+   OTA-раздел (схема разделов `min_spiffs`: 2 × 1,9 МБ), сверяет md5 и перезагружается.
    Новая прошивка подтверждает себя, побыв минуту онлайн; если до этого она упала
    или перезагрузилась — загрузчик ESP-IDF сам откатывает на прежний раздел.
 
@@ -97,8 +75,10 @@ ESP-IDF v5.4 из TuyaOpen (`~/TuyaOpen/platform/ESP32/esp-idf`, инструм�
 → «Авария контроллера, полив остановлен». Для событий (`event`) проще
 автоматизация в Smart Life: «если Событие изменилось → уведомление».
 
-## Прогон без платы
+## MicroPython-вариант и прогон без платы
 
-`micropython mpy/sim/run.py 8` (unix-порт MicroPython, в WSL — `apt install micropython`):
+Прошивка на MicroPython (`mpy/`, сборка `tools/build_fw_mpy.py`, заливка `tools/deploy_mpy.py`)
+оставлена как запасной вариант и как источник логики для эмулятора.
+`micropython mpy/sim/run.py 8` (unix-порт MicroPython, в WSL Ubuntu):
 заглушки `mpy/sim/machine.py`, `network.py` вместо железа; проверяет, что главный
 цикл, часы, Wi-Fi и очередь отчётов работают на настоящем MicroPython.
