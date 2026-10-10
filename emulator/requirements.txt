@@ -3,3 +3,6 @@ tuyalinksdk==0.0.3
 # SDK написан под API paho-mqtt 1.x (в 2.0 поменялись сигнатуры колбэков)
 paho-mqtt>=1.5.1,<2
 colorama
+# заливка прошивки на плату (tools/deploy.py) и прошивка MicroPython
+mpremote
+esptool
