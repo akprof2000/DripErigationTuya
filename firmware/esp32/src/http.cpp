@@ -143,10 +143,13 @@ bool httpOpen(const char* method, const String& url, const uint8_t* body, size_t
         String name = line.substring(0, colon);
         name.trim();
         name.toLowerCase();
+        String v = line.substring(colon + 1);
+        v.trim();
         if (name == "content-length") {
-          String v = line.substring(colon + 1);
-          v.trim();
           resp.length = v.toInt();
+        } else if (name == "transfer-encoding") {
+          v.toLowerCase();
+          resp.chunked = v.indexOf("chunked") >= 0;
         }
       }
     }
@@ -159,6 +162,18 @@ bool httpOpen(const char* method, const String& url, const uint8_t* body, size_t
   }
   LOG_D("http: %s %s → %d, длина %d", method, host.c_str(), resp.status, (int)resp.length);
   return true;
+}
+
+// Строка до \n (без \r\n); пустая строка — таймаут или закрытие
+static String readLine(WiFiClientSecure& c, uint32_t timeoutMs) {
+  String line;
+  uint8_t b;
+  while (line.length() < 512) {
+    if (readSome(c, &b, 1, timeoutMs) <= 0) break;
+    if (b == '\n') break;
+    if (b != '\r') line += (char)b;
+  }
+  return line;
 }
 
 bool httpPostJson(const String& url, const String& body, const char* contentType, JsonDocument& result,
@@ -177,8 +192,34 @@ bool httpPostJson(const String& url, const String& body, const char* contentType
     return false;
   }
   String data;
-  data.reserve(want);
+  data.reserve(want > limit ? limit : want);
   uint8_t buf[256];
+  if (resp.chunked) {   // Transfer-Encoding: chunked — размер(hex) CRLF данные CRLF … 0 CRLF CRLF
+    for (;;) {
+      String line = readLine(resp.client, timeoutMs);
+      line.trim();
+      int semi = line.indexOf(';');
+      if (semi >= 0) line = line.substring(0, semi);
+      long sz = strtol(line.c_str(), nullptr, 16);
+      if (line.length() == 0 || sz < 0) { err = "chunked: плохой размер"; resp.client.stop(); return false; }
+      if (sz == 0) break;
+      if (data.length() + sz > limit) { err = "ответ слишком большой"; resp.client.stop(); return false; }
+      long left = sz;
+      while (left > 0) {
+        size_t chunk = left > (long)sizeof(buf) ? sizeof(buf) : (size_t)left;
+        int r = readSome(resp.client, buf, chunk, timeoutMs);
+        if (r <= 0) { err = "chunked: тело оборвано"; resp.client.stop(); return false; }
+        data.concat((const char*)buf, r);
+        left -= r;
+      }
+      readLine(resp.client, timeoutMs);   // CRLF после блока
+    }
+    resp.client.stop();
+    if (resp.status != 200) { err = "HTTP " + String(resp.status) + ": " + data.substring(0, 80); return false; }
+    DeserializationError e = deserializeJson(result, data);
+    if (e) { err = String("не JSON (") + e.c_str() + "): " + data.substring(0, 120); return false; }
+    return true;
+  }
   while (data.length() < want) {
     size_t chunk = want - data.length();
     if (chunk > sizeof(buf)) chunk = sizeof(buf);
@@ -202,7 +243,8 @@ bool httpPostJson(const String& url, const String& body, const char* contentType
   }
   DeserializationError e = deserializeJson(result, data);
   if (e) {
-    err = String("не JSON: ") + e.c_str();
+    err = String("не JSON (") + e.c_str() + "), длина " + data.length() + ", Content-Length " + resp.length + ": " +
+          data.substring(0, 120);
     return false;
   }
   return true;

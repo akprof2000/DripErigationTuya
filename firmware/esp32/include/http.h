@@ -1,7 +1,7 @@
 // http.h 🌐 HTTPS-запросы к облаку Tuya (порт http_open/http_post из mpy/lib/compat.py).
 // Свой HTTP/1.1 поверх WiFiClientSecure (без проверки сертификата — как в MicroPython-версии,
 // TODO: CA Tuya). Обязательно HTTP/1.1 + Connection: close: iot-dns Tuya отвечает на HTTP/1.0
-// кодом 426. Ответ ожидается с Content-Length (Accept-Encoding: identity); chunked не нужен.
+// кодом 426. Ответ с Content-Length или chunked (ATOP Tuya отдаёт chunked) — оба поддерживаются в httpPostJson.
 #pragma once
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -10,6 +10,7 @@
 struct HttpResponse {
   int status = 0;
   int32_t length = -1;          // Content-Length или -1
+  bool chunked = false;         // Transfer-Encoding: chunked (ATOP Tuya отвечает так)
   WiFiClientSecure client;      // открытое соединение: тело читать из client (после заголовков)
   bool ok() const { return status == 200; }
 };

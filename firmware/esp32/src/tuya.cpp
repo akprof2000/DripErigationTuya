@@ -361,6 +361,9 @@ bool Tuya::atop(const String& api, const String& ver, const String& bodyJson, co
   body.toUpperCase();   // hex в верхнем регистре, как у TuyaOpen
   body = "data=" + body;
 
+  LOG_D("atop: %s?%s", _atopUrl.c_str(), query.c_str());
+  LOG_D("atop: json %s", data.c_str());
+  LOG_D("atop: body %u байт", (unsigned)body.length());
   JsonDocument r;
   if (!httpPostJson(_atopUrl + "?" + query, body, "application/x-www-form-urlencoded;charset=UTF-8", r, err)) {
     err = "ATOP " + api + ": " + err;
