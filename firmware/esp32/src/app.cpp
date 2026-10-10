@@ -92,6 +92,8 @@ void App::loop() {
     _tuya->setPaused(false);
   }
   bool online = _tuya && _tuya->online();
+  // 📡 пока устройство не привязано к Tuya — держим портал (на его странице QR привязки)
+  if (_tuya && !_tuya->activated() && !_wifi.portalActive() && _upSec > 5) _wifi.startPortal(true);
   if (online != _wasOnline) {
     _wasOnline = online;
     _onlineSince = online ? _upSec : 0;
@@ -129,6 +131,7 @@ void App::loop() {
 
 // ---------------------------------------------------------------- облако
 void App::onConnected() {
+  if (_wifi.portalActive() && _wifi.connected()) _wifi.stopPortal();   // привязаны — портал больше не нужен
   size_t pending = _outbox->count();
   _outbox->flush([this](JsonObjectConst d, uint32_t t) { return _tuya->push(d, t); }, _clock.unix());
   JsonDocument full;

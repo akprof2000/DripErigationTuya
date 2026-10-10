@@ -123,7 +123,7 @@ bool WifiLink::tick() {
   if (portalActive()) {
     _dns->processNextRequest();
     _srv->handleClient();
-    if (up && !_saved) stopPortal();   // сеть появилась — портал больше не нужен
+    if (up && !_saved && !_keepWhileUp) stopPortal();   // сеть появилась — портал больше не нужен
   }
   return up;
 }
@@ -164,7 +164,8 @@ void WifiLink::sendPage() {
   _srv->send(200, "text/html; charset=utf-8", html);
 }
 
-void WifiLink::startPortal() {
+void WifiLink::startPortal(bool keepWhileUp) {
+  _keepWhileUp = keepWhileUp;
   if (portalActive()) return;
   // 🔍 сканируем до запуска точки доступа: сканирование в режиме AP+STA гасит маяки AP
   _opts = scanOptions();

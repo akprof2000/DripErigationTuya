@@ -27,7 +27,8 @@ class WifiLink {
   String ip() const;
   const String& ssid() const { return _ssid; }
 
-  void startPortal();               // поднять точку доступа и страницу (если ещё не подняты)
+  // поднять точку доступа и страницу; keepWhileUp — не закрывать, когда сеть есть (пока нет привязки)
+  void startPortal(bool keepWhileUp = false);
   void stopPortal();
   bool portalActive() const { return _srv != nullptr; }
   bool portalSaved() const { return _saved; }   // сеть сохранена — пора перезагружаться
@@ -41,6 +42,7 @@ class WifiLink {
   bool _wasUp = false;
   bool _started = false;
   bool _saved = false;
+  bool _keepWhileUp = false;
   char _apName[24] = "";
   DNSServer* _dns = nullptr;
   WebServer* _srv = nullptr;
