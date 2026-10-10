@@ -32,6 +32,7 @@ class WifiLink {
   bool portalActive() const { return _srv != nullptr; }
   bool portalSaved() const { return _saved; }   // сеть сохранена — пора перезагружаться
   const char* apName() const { return _apName; }
+  void setQrUrl(const String& url) { _qrUrl = url; }   // ссылка привязки Tuya — QR на странице портала
 
  private:
   String _ssid, _pass;
@@ -44,6 +45,8 @@ class WifiLink {
   DNSServer* _dns = nullptr;
   WebServer* _srv = nullptr;
   String _opts;                     // <option> списка сетей
+  String _qrUrl;
+  String qrSvg() const;
   bool save(const String& ssid, const String& pass);
   String scanOptions();
   void sendPage();

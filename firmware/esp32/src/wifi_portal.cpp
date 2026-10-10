@@ -4,6 +4,7 @@
 #include <DNSServer.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <qrcode.h>
 #include "log.h"
 #include "storage.h"
 
@@ -42,7 +43,11 @@ static const char PAGE_TAIL[] PROGMEM = R"HTML(</select>
 <button class="btn" type="submit">Сохранить и подключить</button>
 </form><a class="link" href="/?scan=1">Обновить список сетей</a>
 <p class="hint">Контроллер видит только сети 2,4 ГГц. После сохранения он перезагрузится и подключится к выбранной сети, а эта точка доступа исчезнет.</p>
-</div></div></body></html>)HTML";
+</div>%QR%</div></body></html>)HTML";
+static const char PAGE_QR[] PROGMEM = R"HTML(<div class="card" style="margin-top:16px;text-align:center">
+<h3 style="margin:0 0 4px;font-size:16px">Привязка к приложению Smart Life</h3>
+<p class="hint" style="margin:0 0 12px">Smart Life → «+» → сканировать код. Если устройство уже добавлено, ничего делать не нужно.</p>
+%SVG%<p class="hint" style="word-break:break-all;margin-top:10px">%URL%</p></div>)HTML";
 static const char PAGE_SAVED[] PROGMEM = R"HTML(<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Сохранено</title>
 <style>body{margin:0;background:#eef3f8;font:16px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;color:#1f2329}
@@ -148,6 +153,13 @@ void WifiLink::sendPage() {
   html += _opts;
   String tail = FPSTR(PAGE_TAIL);
   tail.replace("%CUR%", htmlEsc(_ssid));
+  String qr;
+  if (_qrUrl.length()) {
+    qr = FPSTR(PAGE_QR);
+    qr.replace("%SVG%", qrSvg());
+    qr.replace("%URL%", htmlEsc(_qrUrl));
+  }
+  tail.replace("%QR%", qr);
   html += tail;
   _srv->send(200, "text/html; charset=utf-8", html);
 }
@@ -204,4 +216,29 @@ void WifiLink::stopPortal() {
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
   LOG_I("wifi: портал закрыт");
+}
+
+// 🔳 QR-код ссылки привязки как inline-SVG (версия 6: до 134 байт, ссылка ~75)
+String WifiLink::qrSvg() const {
+  QRCode qr;
+  uint8_t buf[qrcode_getBufferSize(6)];
+  if (qrcode_initText(&qr, buf, 6, ECC_LOW, _qrUrl.c_str()) != 0) return "";
+  const int q = 4;   // тихая зона
+  String svg;
+  svg.reserve(6000);
+  svg += "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " + String(qr.size + 2 * q) + " " +
+         String(qr.size + 2 * q) + "\" width=\"220\" height=\"220\" shape-rendering=\"crispEdges\"><rect width=\"100%\" height=\"100%\" fill=\"#fff\"/><path fill=\"#000\" d=\"";
+  for (uint8_t y = 0; y < qr.size; y++) {
+    int runStart = -1;
+    for (uint8_t x = 0; x <= qr.size; x++) {   // объединяем соседние модули в одну полосу
+      bool on = x < qr.size && qrcode_getModule(&qr, x, y);
+      if (on && runStart < 0) runStart = x;
+      if (!on && runStart >= 0) {
+        svg += "M" + String(runStart + q) + " " + String(y + q) + "h" + String(x - runStart) + "v1h-" + String(x - runStart) + "z";
+        runStart = -1;
+      }
+    }
+  }
+  svg += "\"/></svg>";
+  return svg;
 }

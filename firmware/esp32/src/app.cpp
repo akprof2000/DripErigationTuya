@@ -50,6 +50,7 @@ void App::setup() {
     _tuya->onDps = [this](JsonObjectConst dps) { onDps(dps); };
     _tuya->onReset = []() { LOG_W("tuya: устройство удалено из приложения, ждём новую привязку"); };
     _tuya->onQrcode = [](const String& url) { LOG_I("tuya: привязка — QR %s", url.c_str()); };
+    _wifi.setQrUrl(_tuya->qrUrl());   // QR привязки — на странице портала
     _ota = new Ota(*_tuya, FW_VERSION);
     _ota->onBeforeReboot = [this]() { shutdown(); };
     _tuya->onProtocol = [this](int p, JsonObjectConst d) { _ota->onProtocol(p, d); };
