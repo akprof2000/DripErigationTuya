@@ -73,7 +73,8 @@ _R = 0xE1 << 120
 
 
 def _gf_mul(x, y):
-    """Умножение в GF(2^128) по NIST SP 800-38D (биты отражены)."""
+    """Умножение в GF(2^128) по NIST SP 800-38D (биты отражены). Медленный эталон:
+    им считаются таблицы ниже, в GHASH он не вызывается."""
     z = 0
     for i in range(127, -1, -1):
         if (x >> i) & 1:
@@ -82,16 +83,48 @@ def _gf_mul(x, y):
     return z
 
 
+def _mulx(y, times):
+    for _ in range(times):
+        y = (y >> 1) ^ _R if y & 1 else y >> 1
+    return y
+
+
+_TABLES = {}   # h → (M, Rt): таблицы для 4-битного алгоритма Шоупа
+
+
+def _tables(h):
+    """M[v] = (v<<124)·h для полубайта v; Rt[v] = v·x^4 — редукция вытесненных 4 бит.
+    32 шага на блок вместо 128 в _gf_mul; памяти — две таблицы по 16 чисел."""
+    t = _TABLES.get(h)
+    if t is None:
+        m = [_gf_mul(v << 124, h) for v in range(16)]
+        rt = [_mulx(v, 4) for v in range(16)]
+        t = _TABLES[h] = (m, rt)
+        if len(_TABLES) > 4:          # ключей всего два (authkey и localKey)
+            _TABLES.pop(next(iter(_TABLES)))
+    return t
+
+
+def _ghash_mul(x, m, rt):
+    """x·h через таблицы: по 4 бита x от младших к старшим (схема Хорнера по x^4)."""
+    z = 0
+    for shift in range(0, 128, 4):
+        z = (z >> 4) ^ rt[z & 0xF]
+        z ^= m[(x >> shift) & 0xF]
+    return z
+
+
 def _ghash(h, aad, ct):
+    m, rt = _tables(h)
     y = 0
     for data in (aad, ct):
         for i in range(0, len(data), 16):
             block = data[i:i + 16]
             if len(block) < 16:
                 block = block + bytes(16 - len(block))
-            y = _gf_mul(y ^ int.from_bytes(block, "big"), h)
+            y = _ghash_mul(y ^ int.from_bytes(block, "big"), m, rt)
     lens = struct.pack(">QQ", len(aad) * 8, len(ct) * 8)
-    return _gf_mul(y ^ int.from_bytes(lens, "big"), h)
+    return _ghash_mul(y ^ int.from_bytes(lens, "big"), m, rt)
 
 
 def _gcm_core(key, nonce, data, aad):
