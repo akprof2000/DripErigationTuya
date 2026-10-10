@@ -75,6 +75,7 @@ class App:
         self._online_since = None
         self._button_since = None
         self._gc_at = 0
+        self._restart_at = None
 
     @staticmethod
     def _creds():
@@ -98,14 +99,18 @@ class App:
             self.ota.on_connected()
 
     def _on_dps(self, dps):
+        restart = False
         for dp_id, value in dps.items():
             try:
                 code, v = self.spec.decode(dp_id, value)
                 self.dev.apply_dp(code, v, self.now, self.clock.unix())
+                restart = restart or (code == "command" and v == "restart")
             except (ValueError, KeyError) as e:
                 log("DP %s=%r отклонён: %s" % (dp_id, value, e))
         for p in self.dev.report():
             self._queue(p)
+        if restart:                       # на плате «перезагрузка» — настоящая, после отправки отчётов
+            self._restart_at = self.now + 3
 
     def _queue(self, packet, full=False):
         allowed = self.reporter.filter(packet, self.now, full=full)
@@ -191,6 +196,11 @@ class App:
 
             self._button()
             self._led(up)
+            if self._restart_at is not None and self.now >= self._restart_at:
+                log("перезагрузка по команде из приложения")
+                self._shutdown()
+                import machine
+                machine.reset()
 
             # 🔁 новая прошивка после OTA считается удачной, если побыла онлайн минуту
             if self._online_since is not None and self.now - self._online_since > STATE_OK_AFTER:

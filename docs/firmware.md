@@ -29,12 +29,10 @@ SD на VSPI с CS 5.
    ```
 2. Положить файлы (нужен `pip install mpremote`):
    ```bash
-   mpremote connect COM5 cp mpy/boot.py mpy/main.py :
-   mpremote connect COM5 mkdir :app
-   mpremote connect COM5 cp mpy/lib/*.py :app/
-   mpremote connect COM5 cp spec/dp.json :app/dp.json
-   mpremote connect COM5 cp emulator/tuya.json :tuya.json     # pid, uuid, authkey (лицензия TuyaOpen)
+   python tools/deploy.py --port COM5 --creds --wifi "Моя сеть" пароль
    ```
+   (`--creds` кладёт `emulator/tuya.json` — pid, uuid, authkey лицензии TuyaOpen;
+   без `--wifi` плата поднимет портал настройки.)
 3. Включить плату. Без сохранённой сети (или с зажатой кнопкой) поднимется точка
    доступа `DripIrrigation-XXXX` (пароль `irrigation`), страница `http://192.168.4.1`
    — ввести SSID и пароль. Плата перезагрузится и подключится.
@@ -67,3 +65,17 @@ SD на VSPI с CS 5.
 - в портале настройки — мигает, пока открыта страница.
 
 Кнопка: удерживать 5 с — портал настройки Wi-Fi.
+
+## Push-уведомления (ещё не настроено)
+
+Консоль Tuya → продукт → **Product Configuration → Device Notification → Settings**
+(`platform.tuya.com/device/equipment?pid=0uo7msdnt2yn1lgp`): правила «DP → push».
+Разумный набор: `fault` содержит `filter_clog` → «Засорился фильтр»; `rtc`/`sd`/`valves`
+→ «Авария контроллера, полив остановлен». Для событий (`event`) проще
+автоматизация в Smart Life: «если Событие изменилось → уведомление».
+
+## Прогон без платы
+
+`micropython mpy/sim/run.py 8` (unix-порт MicroPython, в WSL — `apt install micropython`):
+заглушки `mpy/sim/machine.py`, `network.py` вместо железа; проверяет, что главный
+цикл, часы, Wi-Fi и очередь отчётов работают на настоящем MicroPython.
