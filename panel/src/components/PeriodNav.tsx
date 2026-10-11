@@ -29,7 +29,7 @@ type Props = {
 
 export default function PeriodNav({ back, span, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(0);
+  const [draft, setDraft] = useState(() => midnight(Date.now()));
   const set = (b: number) => onChange(Math.min(MAX_BACK, Math.max(0, b)));
 
   let title: string;
@@ -71,16 +71,19 @@ export default function PeriodNav({ back, span, onChange }: Props) {
             {t('confirm_yes')}
           </Text>
         </View>
-        <DateTimePicker
-          type="date"
-          value={draft}
-          minDate={midnight(Date.now() - MAX_BACK * DAY_MS)}
-          maxDate={Date.now()}
-          showToolbar={false}
-          locale={{ year: '', month: '', day: '' }}
-          columnsOrder={[2, 1, 0]}
-          onInput={(e: any) => setDraft(Number(e.detail))}
-        />
+        {open && (
+          <DateTimePicker
+            type="date"
+            value={draft}
+            minDate={midnight(Date.now() - MAX_BACK * DAY_MS)}
+            maxDate={midnight(Date.now()) + DAY_MS - 1}
+            showToolbar={false}
+            onInput={(e: any) => {
+              const v = Number(e?.detail);
+              if (v > 0) setDraft(v);
+            }}
+          />
+        )}
       </Popup>
     </View>
   );
