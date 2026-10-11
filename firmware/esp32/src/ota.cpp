@@ -5,6 +5,9 @@
 // пишет во второй OTA-раздел, сверяет md5 и назначает раздел загрузочным.
 // Прогресс — протокол 16 {"progress":"50","firmwareType":N} раз в 10 %.
 #include "ota.h"
+#include <HTTPClient.h>
+#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 
 #include <Update.h>
 #include <esp_ota_ops.h>
@@ -140,17 +143,23 @@ void Ota::run(JsonObjectConst info) {
   const int ch = (int)numField(info, "type");
   const long size = numField(info, "size");
   const String url = info["httpsUrl"] | "";
+  const String httpUrl = info["url"] | "";
+  {
+    String keys;
+    for (JsonPairConst kv : info) { keys += kv.key().c_str(); keys += ' '; }
+    LOG_D("ota: поля задания: %s", keys.c_str());
+  }
   String md5 = info["md5"] | "";
   md5.toLowerCase();
   const String version = info["version"] | "?";
   String err;
   LOG_I("ota: %s → %s, %ld байт", _version.c_str(), version.c_str(), size);
-  if (size <= 0 || url.length() == 0) {
+  if (size <= 0 || (url.length() == 0 && httpUrl.length() == 0)) {
     err = "в задании нет size/httpsUrl";
   } else {
     status(ch, ST_UPGRADING);
     status(ch, ST_DOWNLOAD_START);
-    download(url, (size_t)size, md5, ch, err);
+    download(url, httpUrl, (size_t)size, md5, ch, err);
   }
   if (err.length()) {
     LOG_E("ota: ошибка: %s", err.c_str());
@@ -175,47 +184,75 @@ void Ota::run(JsonObjectConst info) {
   _busy = false;   // недостижимо, для порядка
 }
 
-// Скачать образ потоком в Update. false + err при любой ошибке (Update уже отменён).
-bool Ota::download(const String& url, size_t size, const String& md5, int ch, String& err) {
-  HttpResponse resp;
-  if (!httpOpen("GET", url, nullptr, 0, nullptr, resp, DOWNLOAD_TIMEOUT_MS)) {
-    err = "нет связи с сервером образа";
+// Открыть поток образа: HTTPClient ядра (http и https, редиректы). nullptr + err при ошибке.
+static bool openImage(HTTPClient& http, WiFiClientSecure& tls, WiFiClient& plain, const String& url,
+                      String& err) {
+  http.setTimeout(DOWNLOAD_TIMEOUT_MS);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  bool ok;
+  if (url.startsWith("https://")) {
+    tls.setInsecure();   // TODO: CA Tuya
+    ok = http.begin(tls, url);
+  } else {
+    ok = http.begin(plain, url);
+  }
+  if (!ok) { err = "http.begin"; return false; }
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    err = "HTTP " + String(code) + " (" + HTTPClient::errorToString(code) + ")";
+    http.end();
     return false;
   }
-  if (resp.status != 200) {
-    err = "HTTP " + String(resp.status);
-    resp.client.stop();
-    return false;
+  return true;
+}
+
+// Скачать образ потоком в Update: сначала httpsUrl, при неудаче — url (http).
+bool Ota::download(const String& httpsUrl, const String& httpUrl, size_t size, const String& md5, int ch,
+                   String& err) {
+  HTTPClient http;
+  WiFiClientSecure tls;
+  WiFiClient plain;
+  String e1;
+  bool opened = httpsUrl.length() && openImage(http, tls, plain, httpsUrl, e1);
+  if (!opened) {
+    LOG_W("ota: https: %s", e1.c_str());
+    String e2;
+    opened = httpUrl.length() && openImage(http, tls, plain, httpUrl, e2);
+    if (!opened) {
+      err = "нет связи с сервером образа (" + e1 + "; " + (httpUrl.length() ? e2 : String("http-ссылки нет")) + ")";
+      return false;
+    }
+    LOG_I("ota: качаю по http");
   }
-  if (resp.length >= 0 && (size_t)resp.length != size) {
-    LOG_W("ota: Content-Length %d ≠ size %u из задания", (int)resp.length, (unsigned)size);
+  const int len = http.getSize();
+  if (len >= 0 && (size_t)len != size) {
+    LOG_W("ota: Content-Length %d ≠ size %u из задания", len, (unsigned)size);
   }
   if (!Update.begin(size)) {   // сам проверяет, что образ влезает в свободный OTA-раздел
     err = String("Update.begin: ") + Update.errorString();
-    resp.client.stop();
+    http.end();
     return false;
   }
   if (md5.length() && !Update.setMD5(md5.c_str())) {
     err = "плохой md5 в задании";
     Update.abort();
-    resp.client.stop();
+    http.end();
     return false;
   }
   uint8_t* buf = (uint8_t*)malloc(BLOCK);
   if (!buf) {
     err = "нет памяти под буфер";
     Update.abort();
-    resp.client.stop();
+    http.end();
     return false;
   }
-  WiFiClientSecure& c = resp.client;
+  WiFiClient& c = *http.getStreamPtr();
   size_t got = 0;
   int lastPct = -1;
   bool ok = true;
   while (got < size) {
     size_t want = size - got;
     if (want > BLOCK) want = BLOCK;
-    // Набрать блок: read() не блокирует, ждём данных до DOWNLOAD_TIMEOUT_MS
     const uint32_t start = millis();
     int n = 0;
     while (n == 0) {
@@ -250,7 +287,7 @@ bool Ota::download(const String& url, size_t size, const String& md5, int ch, St
     }
   }
   free(buf);
-  c.stop();
+  http.end();
   if (!ok) {
     Update.abort();
     return false;

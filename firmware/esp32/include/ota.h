@@ -33,7 +33,7 @@ class Ota {
   int _channel = -1;        // ждёт выполнения задание на обновление
   bool _busy = false;
   void run(JsonObjectConst info);
-  bool download(const String& url, size_t size, const String& md5, int ch, String& err);
+  bool download(const String& httpsUrl, const String& httpUrl, size_t size, const String& md5, int ch, String& err);
   void status(int ch, int st);
   void progress(int ch, int pct);
 };
