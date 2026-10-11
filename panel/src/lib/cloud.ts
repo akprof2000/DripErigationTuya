@@ -131,10 +131,17 @@ export async function loadDailyFromLog(
   dpId: number,
   days: number,
   mode: 'delta' | 'avg',
-  scale = 0
+  scale = 0,
+  endBack = 0 // последний день периода: 0 — сегодня
 ): Promise<{ day: string; value: number }[]> {
   try {
-    const reports = await loadReports(devId, dpId, dayOf(days - 1), dayOf(0), Math.max(12, days * 2));
+    const reports = await loadReports(
+      devId,
+      dpId,
+      dayOf(endBack + days - 1),
+      dayOf(endBack),
+      Math.max(12, (endBack + days) * 2)
+    );
     const k = 10 ** scale;
     const sum: Record<string, number> = {};
     const cnt: Record<string, number> = {};
@@ -149,7 +156,7 @@ export async function loadDailyFromLog(
       return r.value;
     }, undefined);
     const lastDays = Array.from({ length: days }, (_, i) =>
-      ymd(new Date(Date.now() - (days - 1 - i) * DAY_MS))
+      ymd(new Date(Date.now() - (endBack + days - 1 - i) * DAY_MS))
     );
     const result =
       mode === 'delta'

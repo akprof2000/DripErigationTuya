@@ -1,18 +1,16 @@
 // Экран грядки: влажность и состояние клапана, режим, порог, имя, калибровка датчика.
 import React, { useEffect, useState } from 'react';
 import { View, Text, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
-import { NavBar, Slider, Cell, CellGroup, Field, Dialog, Popup, DateTimePicker } from '@ray-js/smart-ui';
+import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames } from '@/lib/hooks';
 import { loadDailyFromLog, loadHourlyFromLog, loadValveDay, dayOf } from '@/lib/cloud';
 import Chart from '@/components/Chart';
 import ValveChart from '@/components/ValveChart';
-import chartStyles from '@/components/chart.module.less';
+import PeriodNav from '@/components/PeriodNav';
 import styles from '@/components/common.module.less';
 import page from '../home/index.module.less';
-
-const MAX_BACK = 90; // на сколько дней назад можно выбрать день
 
 export default function ChannelPage() {
   const query = useQuery<{ ch?: string }>();
@@ -28,6 +26,7 @@ export default function ChannelPage() {
   const [dayBack, setDayBack] = useState(0);
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
   const week = range !== 'day';
+  const span = range === 'month' ? 30 : range === 'week' ? 7 : 1;
   const [hourly, setHourly] = useState<(number | null)[]>([]);
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +38,7 @@ export default function ChannelPage() {
     setLoading(true);
     const done = () => setLoading(false);
     if (week)
-      loadDailyFromLog(devId, 130 + ch, range === 'month' ? 30 : 7, 'avg')
+      loadDailyFromLog(devId, 130 + ch, span, 'avg', 0, dayBack)
         .then(setDaily)
         .then(done, done);
     else
@@ -48,24 +47,6 @@ export default function ChannelPage() {
         loadValveDay(devId, 140 + ch, dayOf(dayBack)).then(setValveDay),
       ]).then(done, done);
   }, [devId, ch, dayBack, range]);
-
-  const dayTitle = (back: number) => {
-    if (back === 0) return t('today');
-    if (back === 1) return t('yesterday');
-    const d = dayOf(back);
-    return `${d.slice(6)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
-  };
-  // календарь: свой (smart-ui), подписи из i18n — системный Picker показывал китайский
-  const [picking, setPicking] = useState(false);
-  const midnight = (ts: number) => {
-    const d = new Date(ts);
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  };
-  const pickDay = (ts: number) => {
-    const diff = Math.round((midnight(Date.now()) - midnight(ts)) / 86400000);
-    setDayBack(Math.min(MAX_BACK, Math.max(0, diff)));
-    setPicking(false);
-  };
 
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -96,19 +77,7 @@ export default function ChannelPage() {
                 </Text>
               ))}
           </View>
-          {!week && (
-            <View className={`${styles.row} ${chartStyles.dayRow}`}>
-              <Text className={styles.navBtn} onClick={() => setDayBack(Math.min(MAX_BACK, dayBack + 1))}>
-                {'<'}
-              </Text>
-              <Text className={chartStyles.datePick} onClick={() => setPicking(true)}>
-                📅 {dayTitle(dayBack)}
-              </Text>
-              <Text className={styles.navBtn} onClick={() => setDayBack(Math.max(0, dayBack - 1))}>
-                {'>'}
-              </Text>
-            </View>
-          )}
+          <PeriodNav back={dayBack} span={span} onChange={setDayBack} />
           {loading && <Text className={styles.muted}>{t('loading')}</Text>}
           {!loading && week && daily.length > 0 && (
             <Chart
@@ -200,21 +169,6 @@ export default function ChannelPage() {
           />
         </CellGroup>
       </View>
-      <Popup show={picking} position="bottom" round onClose={() => setPicking(false)}>
-        <DateTimePicker
-          type="date"
-          value={midnight(Date.now() - dayBack * 86400000)}
-          minDate={midnight(Date.now() - MAX_BACK * 86400000)}
-          maxDate={Date.now()}
-          title={t('pick_day')}
-          confirmButtonText={t('confirm_yes')}
-          cancelButtonText={t('cancel')}
-          locale={{ year: '', month: '', day: '' }}
-          columnsOrder={[2, 1, 0]}
-          onConfirm={(e: any) => pickDay(Number(e.detail))}
-          onCancel={() => setPicking(false)}
-        />
-      </Popup>
       <Dialog
         show={editing}
         title={t('rename')}

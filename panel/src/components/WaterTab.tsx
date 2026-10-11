@@ -7,6 +7,7 @@ import { t, faultsOf } from '@/lib/dp';
 import { useStatus } from '@/lib/hooks';
 import { loadDailyFromLog } from '@/lib/cloud';
 import Chart from './Chart';
+import PeriodNav from './PeriodNav';
 import chartStyles from './chart.module.less';
 import styles from './common.module.less';
 
@@ -21,11 +22,12 @@ export default function WaterTab() {
   const clogged = faultsOf(s.fault).includes('filter_clog');
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
   const [month, setMonth] = useState(false);
+  const [back, setBack] = useState(0);
 
   useEffect(() => {
     // flow_total — накопительный счётчик (scale 1): прирост за сутки = расход за день, л
-    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, month ? 30 : 7, 'delta', 1).then(setDaily);
-  }, [devId, month]);
+    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, month ? 30 : 7, 'delta', 1, back).then(setDaily);
+  }, [devId, month, back]);
 
   const maxDay = Math.max(1, ...daily.map(d => d.value));
   const confirm = (message: string, run: () => void) =>
@@ -66,6 +68,7 @@ export default function WaterTab() {
               </Text>
             ))}
         </View>
+        <PeriodNav back={back} span={month ? 30 : 7} onChange={setBack} />
         {daily.some(d => d.value > 0) ? (
           <Chart
             points={daily.map(d => ({
