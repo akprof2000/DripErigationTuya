@@ -39,7 +39,7 @@ export default function Chart({
     const q = createSelectorQuery();
     q.select(`#${id}`)
       .boundingClientRect((r: any) => r && r.width && setSize({ w: r.width, h: r.height }))
-      .exec();
+      .exec(() => undefined);
   }, [line, id, points.length]);
   const top = Math.max(1, max ?? Math.max(...points.map(p => p.value ?? 0)));
   const n = points.length || 1;

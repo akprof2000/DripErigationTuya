@@ -9,6 +9,7 @@ import { loadDailyFromLog, loadHourlyFromLog, loadValveDay, dayOf } from '@/lib/
 import Chart from '@/components/Chart';
 import ValveChart from '@/components/ValveChart';
 import PeriodNav from '@/components/PeriodNav';
+import chartStyles from '@/components/chart.module.less';
 import styles from '@/components/common.module.less';
 import page from '../home/index.module.less';
 

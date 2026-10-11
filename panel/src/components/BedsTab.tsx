@@ -44,7 +44,7 @@ export default function BedsTab() {
   const s = useStatus();
   const { names } = useBedNames();
   const faults = faultsOf(s.fault).filter(f => f !== 'filter_clog');
-  const missing = missingPeriph(s.sys).filter(f => !faults.includes(f));  // не дублировать красную плашку
+  const missing = missingPeriph(s.sys).filter(f => !(faults as string[]).includes(f));  // не дублировать красную плашку
 
   return (
     <View>

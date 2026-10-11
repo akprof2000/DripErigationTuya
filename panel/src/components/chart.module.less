@@ -164,3 +164,30 @@
 .pickTitle { font-size: 30rpx; font-weight: 600; }
 .pickCancel { font-size: 28rpx; color: @muted; }
 .pickOk { font-size: 28rpx; color: @accent; font-weight: 600; }
+
+// календарь-сетка
+.cal { padding-bottom: 32rpx; }
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 16rpx;
+}
+.calMonth { font-size: 30rpx; font-weight: 600; }
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8rpx;
+  padding: 0 24rpx;
+}
+.calWd { text-align: center; font-size: 22rpx; color: @muted; padding: 8rpx 0; }
+.calCell {
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  font-size: 28rpx;
+  border-radius: 36rpx;
+}
+.calOff { opacity: 0.25; }
+.calToday { font-weight: 700; color: @accent; }
+.calSel { background: @accent; color: #fff; }
