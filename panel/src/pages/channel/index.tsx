@@ -104,6 +104,7 @@ export default function ChannelPage() {
               threshold={border}
               showValues={range === 'week'}
               labelEvery={range === 'month' ? 5 : 1}
+              line={range === 'month'}
             />
           )}
           {!loading && !week && hourly.some(v => v !== null) && (
@@ -115,7 +116,8 @@ export default function ChannelPage() {
               max={100}
               unit="%"
               threshold={border}
-              labelEvery={3}
+              labelEvery={4}
+              line
             />
           )}
           {!loading &&
