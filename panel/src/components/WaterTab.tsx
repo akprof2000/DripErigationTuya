@@ -34,7 +34,7 @@ export default function WaterTab() {
   const confirm = (message: string, run: () => void) =>
     DialogInstance.confirm({
       message,
-      cancelButtonText: t('cancel'),
+      cancelButtonText: t('btn_cancel'),
       confirmButtonText: t('confirm_yes'),
     })
       .then(run)

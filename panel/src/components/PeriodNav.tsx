@@ -83,7 +83,7 @@ export default function PeriodNav({ back, span, onChange }: Props) {
         <View className={chartStyles.cal}>
           <View className={chartStyles.pickBar}>
             <Text className={chartStyles.pickCancel} onClick={() => setOpen(false)}>
-              {t('cancel')}
+              {t('btn_cancel')}
             </Text>
             <Text className={chartStyles.pickTitle}>{t(span > 1 ? 'pick_end' : 'pick_day')}</Text>
             <Text className={chartStyles.pickCancel} />

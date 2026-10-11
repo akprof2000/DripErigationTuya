@@ -180,7 +180,7 @@ export default function ChannelPage() {
         title={t('rename')}
         useSlot
         showCancelButton
-        cancelButtonText={t('cancel')}
+        cancelButtonText={t('btn_cancel')}
         confirmButtonText={t('save')}
         onConfirm={() => {
           rename(ch, nameDraft);

@@ -27,7 +27,7 @@ export default function SettingsTab() {
     />
   );
   const confirm = (message: string, run: () => void) =>
-    DialogInstance.confirm({ message, cancelButtonText: t('cancel'), confirmButtonText: t('confirm_yes') })
+    DialogInstance.confirm({ message, cancelButtonText: t('btn_cancel'), confirmButtonText: t('confirm_yes') })
       .then(run)
       .catch(() => undefined);
 

@@ -163,7 +163,7 @@ export default function WizardPage() {
           ) : (
             <>
               <Button block plain onClick={() => send({ op, step: 'cancel' })}>
-                {t('cancel')}
+                {t('btn_cancel')}
               </Button>
               <Button
                 block
