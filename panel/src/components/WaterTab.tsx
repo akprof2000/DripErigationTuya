@@ -7,6 +7,7 @@ import { t, faultsOf } from '@/lib/dp';
 import { useStatus } from '@/lib/hooks';
 import { loadDailyFromLog } from '@/lib/cloud';
 import Chart from './Chart';
+import chartStyles from './chart.module.less';
 import styles from './common.module.less';
 
 const FLOW_TOTAL_DP = 108;
@@ -53,9 +54,8 @@ export default function WaterTab() {
       </View>
 
       <View className={styles.section}>
-        <View className={styles.row}>
-          <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
-          <View className={styles.segment}>
+        <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
+        <View className={`${styles.segment} ${chartStyles.seg2}`}>
             {[false, true].map(m => (
               <Text
                 key={String(m)}
@@ -65,7 +65,6 @@ export default function WaterTab() {
                 {t(m ? 'by_month' : 'by_week')}
               </Text>
             ))}
-          </View>
         </View>
         {daily.some(d => d.value > 0) ? (
           <Chart

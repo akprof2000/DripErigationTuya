@@ -1,7 +1,7 @@
 // Экран грядки: влажность и состояние клапана, режим, порог, имя, калибровка датчика.
 import React, { useEffect, useState } from 'react';
-import { View, Text, Picker, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
-import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
+import { View, Text, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
+import { NavBar, Slider, Cell, CellGroup, Field, Dialog, Popup, DateTimePicker } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames } from '@/lib/hooks';
@@ -55,17 +55,16 @@ export default function ChannelPage() {
     const d = dayOf(back);
     return `${d.slice(6)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
   };
-  const iso = (back: number) => {
-    const d = dayOf(back);
-    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
+  // календарь: свой (smart-ui), подписи из i18n — системный Picker показывал китайский
+  const [picking, setPicking] = useState(false);
+  const midnight = (ts: number) => {
+    const d = new Date(ts);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   };
-  const pickDay = (e: any) => {
-    const [y, m, d] = String(e.detail.value).split('-').map(Number);
-    const now = new Date();
-    const diff = Math.round(
-      (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(y, m - 1, d)) / 86400000
-    );
+  const pickDay = (ts: number) => {
+    const diff = Math.round((midnight(Date.now()) - midnight(ts)) / 86400000);
     setDayBack(Math.min(MAX_BACK, Math.max(0, diff)));
+    setPicking(false);
   };
 
   const [editing, setEditing] = useState(false);
@@ -85,9 +84,8 @@ export default function ChannelPage() {
         </View>
 
         <View className={styles.section}>
-          <View className={styles.row}>
-            <Text className={styles.sectionTitle}>{t('humidity_chart')}</Text>
-            <View className={styles.segment}>
+          <Text className={styles.sectionTitle}>{t('humidity_chart')}</Text>
+          <View className={`${styles.segment} ${chartStyles.seg3}`}>
               {(['day', 'week', 'month'] as const).map(r => (
                 <Text
                   key={r}
@@ -97,16 +95,15 @@ export default function ChannelPage() {
                   {t(`by_${r}`)}
                 </Text>
               ))}
-            </View>
           </View>
           {!week && (
-            <View className={styles.row}>
+            <View className={`${styles.row} ${chartStyles.dayRow}`}>
               <Text className={styles.navBtn} onClick={() => setDayBack(Math.min(MAX_BACK, dayBack + 1))}>
                 {'<'}
               </Text>
-              <Picker mode="date" value={iso(dayBack)} start={iso(MAX_BACK)} end={iso(0)} onChange={pickDay}>
-                <Text className={chartStyles.datePick}>📅 {dayTitle(dayBack)}</Text>
-              </Picker>
+              <Text className={chartStyles.datePick} onClick={() => setPicking(true)}>
+                📅 {dayTitle(dayBack)}
+              </Text>
               <Text className={styles.navBtn} onClick={() => setDayBack(Math.max(0, dayBack - 1))}>
                 {'>'}
               </Text>
@@ -203,6 +200,21 @@ export default function ChannelPage() {
           />
         </CellGroup>
       </View>
+      <Popup show={picking} position="bottom" round onClose={() => setPicking(false)}>
+        <DateTimePicker
+          type="date"
+          value={midnight(Date.now() - dayBack * 86400000)}
+          minDate={midnight(Date.now() - MAX_BACK * 86400000)}
+          maxDate={Date.now()}
+          title={t('pick_day')}
+          confirmButtonText={t('confirm_yes')}
+          cancelButtonText={t('cancel')}
+          locale={{ year: '', month: '', day: '' }}
+          columnsOrder={[2, 1, 0]}
+          onConfirm={(e: any) => pickDay(Number(e.detail))}
+          onCancel={() => setPicking(false)}
+        />
+      </Popup>
       <Dialog
         show={editing}
         title={t('rename')}

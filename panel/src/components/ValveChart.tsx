@@ -38,9 +38,11 @@ export default function ValveChart({ intervals, end }: Props) {
             />
           ))}
         </View>
-        <View className={styles.labels}>
+        <View className={styles.hourLabels}>
           {[0, 6, 12, 18].map(h => (
-            <Text key={h} className={styles.label}>{`${String(h).padStart(2, '0')}:00`}</Text>
+            <Text key={h} className={styles.hourLabel} style={{ left: pct(h / 24), transform: h ? undefined : 'none' }}>
+              {`${String(h).padStart(2, '0')}:00`}
+            </Text>
           ))}
         </View>
       </View>

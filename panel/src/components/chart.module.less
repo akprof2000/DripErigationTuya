@@ -13,7 +13,7 @@
   flex-direction: column;
   justify-content: space-between;
   height: 200rpx;
-  width: 64rpx;
+  width: 96rpx; // одна ширина у всех графиков — области совпадают по X
   flex: none;
 }
 
@@ -97,12 +97,13 @@
 }
 
 // линейный режим
-@line: #ff8f3f;
+@line: @accent; // линия в цвет темы панели
 .bars { position: relative; }
 .fill {
   position: absolute;
   bottom: 0;
-  background: linear-gradient(rgba(255, 143, 63, 0.3), rgba(255, 143, 63, 0.03));
+  background: @accent;
+  opacity: 0.15;
 }
 .seg {
   position: absolute;
@@ -122,7 +123,9 @@
 }
 
 // клапан: ступеньки
-.axisValve { height: 120rpx; width: 88rpx; }
+.axisValve { height: 120rpx; }
+.hourLabels { position: relative; height: 30rpx; margin-top: 6rpx; }
+.hourLabel { position: absolute; transform: translateX(-50%); font-size: 18rpx; color: @muted; white-space: nowrap; }
 .valvePlot { height: 120rpx; }
 .stepLow {
   position: absolute;
@@ -137,10 +140,15 @@
   box-sizing: border-box;
   border: 4rpx solid @line;
   border-bottom: none;
-  background: rgba(255, 143, 63, 0.12);
 }
 .datePick {
   padding: 8rpx 24rpx;
+  color: @accent;
   border-radius: 16rpx;
   background: var(--app-B3-N7, rgba(0, 0, 0, 0.06));
 }
+
+// переключатели периода — на всю ширину под заголовком
+.seg3 { grid-template-columns: repeat(3, 1fr); margin: 12rpx 0; }
+.seg2 { grid-template-columns: repeat(2, 1fr); margin: 12rpx 0; }
+.dayRow { margin-bottom: 8rpx; }
