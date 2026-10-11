@@ -146,6 +146,8 @@ void App::onConnected() {
 
 void App::onDps(JsonObjectConst dps) {
   bool applied = false;
+  JsonDocument ackDoc;
+  JsonArray ack = ackDoc.to<JsonArray>();   // коды, которые надо подтвердить отчётом даже без изменения
   for (JsonPairConst kv : dps) {
     uint16_t id = atoi(kv.key().c_str());
     dp::Decoded d;
@@ -154,6 +156,7 @@ void App::onDps(JsonObjectConst dps) {
     if (_dev->applyDp(d.info->code, d.number, d.flag, d.text, millis(), _clock.unix(), err)) {
       LOG_I("dp %s ← %s", d.info->code, kv.value().as<String>().c_str());
       applied = true;
+      if (d.info->mode == DpMode::RW) ack.add(d.info->code);
     } else {
       LOG_W("dp %s: %s", d.info->code, err.c_str());
     }
@@ -161,7 +164,16 @@ void App::onDps(JsonObjectConst dps) {
   if (applied) {   // сразу отчитаться, чтобы панель увидела новое состояние
     JsonDocument changed;
     JsonObject ch = changed.to<JsonObject>();
-    if (_dev->report(ch, false)) queue(ch, false);
+    _dev->report(ch, false);
+    // ✅ подтверждение команды: приложение повторяет её, пока устройство не вернёт то же значение
+    JsonDocument snapDoc;
+    JsonObject snap = snapDoc.to<JsonObject>();
+    _dev->snapshot(snap);
+    for (JsonVariantConst c : ack) {
+      const char* code = c.as<const char*>();
+      if (!snap[code].isNull()) ch[code] = snap[code];
+    }
+    if (ch.size()) queue(ch, true);
     sendEvents();
   }
 }
