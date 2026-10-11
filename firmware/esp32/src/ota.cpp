@@ -144,6 +144,9 @@ void Ota::run(JsonObjectConst info) {
   const long size = numField(info, "size");
   const String url = info["httpsUrl"] | "";
   const String httpUrl = info["url"] | "";
+  const String cdnUrl = info["cdnUrl"] | "";
+  auto hostOf = [](const String& u) { int a = u.indexOf("://"); if (a < 0) return String("-"); int b = u.indexOf('/', a + 3); return u.substring(0, b < 0 ? u.length() : b); };
+  LOG_I("ota: источники: https=%s http=%s cdn=%s", hostOf(url).c_str(), hostOf(httpUrl).c_str(), hostOf(cdnUrl).c_str());
   {
     String keys;
     for (JsonPairConst kv : info) { keys += kv.key().c_str(); keys += ' '; }
@@ -160,6 +163,11 @@ void Ota::run(JsonObjectConst info) {
     status(ch, ST_UPGRADING);
     status(ch, ST_DOWNLOAD_START);
     download(url, httpUrl, (size_t)size, md5, ch, err);
+    if (err.length() && cdnUrl.length()) {   // запасной источник — CDN
+      LOG_W("ota: %s; пробую CDN", err.c_str());
+      err = "";
+      download(cdnUrl, "", (size_t)size, md5, ch, err);
+    }
   }
   if (err.length()) {
     LOG_E("ota: ошибка: %s", err.c_str());

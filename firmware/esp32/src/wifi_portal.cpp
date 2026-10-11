@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <qrcode.h>
+#include <lwip/dns.h>
 #include "log.h"
 #include "storage.h"
 
@@ -110,7 +111,15 @@ bool WifiLink::tick() {
   bool up = connected();
   if (up != _wasUp) {
     _wasUp = up;
-    if (up) LOG_I("wifi: подключено, IP %s, RSSI %d", ip().c_str(), WiFi.RSSI());
+    if (up) {
+      LOG_I("wifi: подключено, IP %s, RSSI %d", ip().c_str(), WiFi.RSSI());
+      // 🌐 публичные DNS: роутеры часто не разрешают домены CDN Tuya (сервер образов OTA)
+      ip_addr_t d1, d2;
+      IP_ADDR4(&d1, 8, 8, 8, 8);
+      IP_ADDR4(&d2, 1, 1, 1, 1);
+      dns_setserver(0, &d1);
+      dns_setserver(1, &d2);
+    }
     else LOG_W("wifi: потеряно");
     _downSince = up ? 0 : (millis() ? millis() : 1);
   }
