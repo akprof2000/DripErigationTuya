@@ -19,11 +19,12 @@ export default function WaterTab() {
   const monitor = useProps(p => p.flow_monitor as boolean);
   const clogged = faultsOf(s.fault).includes('filter_clog');
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
+  const [month, setMonth] = useState(false);
 
   useEffect(() => {
     // flow_total — накопительный счётчик (scale 1): прирост за сутки = расход за день, л
-    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, 7, 'delta', 1).then(setDaily);
-  }, [devId]);
+    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, month ? 30 : 7, 'delta', 1).then(setDaily);
+  }, [devId, month]);
 
   const maxDay = Math.max(1, ...daily.map(d => d.value));
   const confirm = (message: string, run: () => void) =>
@@ -52,7 +53,20 @@ export default function WaterTab() {
       </View>
 
       <View className={styles.section}>
-        <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
+        <View className={styles.row}>
+          <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
+          <View className={styles.segment}>
+            {[false, true].map(m => (
+              <Text
+                key={String(m)}
+                className={`${styles.segItem} ${month === m ? styles.segActive : ''}`}
+                onClick={() => setMonth(m)}
+              >
+                {t(m ? 'by_month' : 'by_week')}
+              </Text>
+            ))}
+          </View>
+        </View>
         {daily.some(d => d.value > 0) ? (
           <Chart
             points={daily.map(d => ({
@@ -60,7 +74,8 @@ export default function WaterTab() {
               value: d.value,
             }))}
             unit={t('liters')}
-            showValues
+            showValues={!month}
+            labelEvery={month ? 5 : 1}
           />
         ) : (
           <Text className={styles.muted}>{t('water_no_chart')}</Text>

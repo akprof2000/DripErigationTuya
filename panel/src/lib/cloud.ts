@@ -129,7 +129,7 @@ export async function loadDailyFromLog(
   scale = 0
 ): Promise<{ day: string; value: number }[]> {
   try {
-    const reports = await loadReports(devId, dpId, dayOf(days - 1), dayOf(0));
+    const reports = await loadReports(devId, dpId, dayOf(days - 1), dayOf(0), Math.max(12, days * 2));
     const k = 10 ** scale;
     const sum: Record<string, number> = {};
     const cnt: Record<string, number> = {};

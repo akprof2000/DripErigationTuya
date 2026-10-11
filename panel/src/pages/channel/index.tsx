@@ -20,9 +20,10 @@ export default function ChannelPage() {
   const { names, rename } = useBedNames();
   const name = bedName(names, ch);
   const [draft, setDraft] = useState(border);
-  // график: по часам за выбранный день (0 — сегодня, 1 — вчера, … 6) или по дням за неделю
+  // график: по часам за выбранный день (0 — сегодня, 1 — вчера, … 6) или по дням за неделю/месяц
   const [dayBack, setDayBack] = useState(0);
-  const [week, setWeek] = useState(false);
+  const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
+  const week = range !== 'day';
   const [hourly, setHourly] = useState<(number | null)[]>([]);
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,14 +34,14 @@ export default function ChannelPage() {
     setLoading(true);
     const done = () => setLoading(false);
     if (week)
-      loadDailyFromLog(devId, 130 + ch, 7, 'avg')
+      loadDailyFromLog(devId, 130 + ch, range === 'month' ? 30 : 7, 'avg')
         .then(setDaily)
         .then(done, done);
     else
       loadHourlyFromLog(devId, 130 + ch, dayOf(dayBack))
         .then(setHourly)
         .then(done, done);
-  }, [devId, ch, dayBack, week]);
+  }, [devId, ch, dayBack, range]);
 
   const dayTitle = (back: number) => {
     if (back === 0) return t('today');
@@ -69,18 +70,15 @@ export default function ChannelPage() {
           <View className={styles.row}>
             <Text className={styles.sectionTitle}>{t('humidity_chart')}</Text>
             <View className={styles.segment}>
-              <Text
-                className={`${styles.segItem} ${!week ? styles.segActive : ''}`}
-                onClick={() => setWeek(false)}
-              >
-                {t('by_day')}
-              </Text>
-              <Text
-                className={`${styles.segItem} ${week ? styles.segActive : ''}`}
-                onClick={() => setWeek(true)}
-              >
-                {t('by_week')}
-              </Text>
+              {(['day', 'week', 'month'] as const).map(r => (
+                <Text
+                  key={r}
+                  className={`${styles.segItem} ${range === r ? styles.segActive : ''}`}
+                  onClick={() => setRange(r)}
+                >
+                  {t(`by_${r}`)}
+                </Text>
+              ))}
             </View>
           </View>
           {!week && (
@@ -104,7 +102,8 @@ export default function ChannelPage() {
               max={100}
               unit="%"
               threshold={border}
-              showValues
+              showValues={range === 'week'}
+              labelEvery={range === 'month' ? 5 : 1}
             />
           )}
           {!loading && !week && hourly.some(v => v !== null) && (
