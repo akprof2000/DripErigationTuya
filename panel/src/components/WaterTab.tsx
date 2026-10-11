@@ -27,7 +27,7 @@ export default function WaterTab() {
 
   const maxDay = Math.max(1, ...daily.map(d => d.value));
   const confirm = (message: string, run: () => void) =>
-    DialogInstance.confirm({ message, cancelButtonText: t('cancel') })
+    DialogInstance.confirm({ message, cancelButtonText: t('cancel'), confirmButtonText: t('confirm_yes') })
       .then(run)
       .catch(() => undefined);
 
