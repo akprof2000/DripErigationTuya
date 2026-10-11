@@ -26,12 +26,17 @@ export default function WaterTab() {
 
   useEffect(() => {
     // flow_total — накопительный счётчик (scale 1): прирост за сутки = расход за день, л
-    if (devId) loadDailyFromLog(devId, FLOW_TOTAL_DP, month ? 30 : 7, 'delta', 1, back).then(setDaily);
+    if (devId)
+      loadDailyFromLog(devId, FLOW_TOTAL_DP, month ? 30 : 7, 'delta', 1, back).then(setDaily);
   }, [devId, month, back]);
 
   const maxDay = Math.max(1, ...daily.map(d => d.value));
   const confirm = (message: string, run: () => void) =>
-    DialogInstance.confirm({ message, cancelButtonText: t('cancel'), confirmButtonText: t('confirm_yes') })
+    DialogInstance.confirm({
+      message,
+      cancelButtonText: t('cancel'),
+      confirmButtonText: t('confirm_yes'),
+    })
       .then(run)
       .catch(() => undefined);
 
@@ -57,16 +62,19 @@ export default function WaterTab() {
 
       <View className={styles.section}>
         <Text className={styles.sectionTitle}>{t('water_by_day')}</Text>
-        <View className={`${styles.segment} ${chartStyles.seg2}`}>
-            {[false, true].map(m => (
-              <Text
-                key={String(m)}
-                className={`${styles.segItem} ${month === m ? styles.segActive : ''}`}
-                onClick={() => setMonth(m)}
-              >
-                {t(m ? 'by_month' : 'by_week')}
-              </Text>
-            ))}
+        <View
+          className={`${styles.segment} ${chartStyles.segGap}`}
+          style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}
+        >
+          {[false, true].map(m => (
+            <Text
+              key={String(m)}
+              className={`${styles.segItem} ${month === m ? styles.segActive : ''}`}
+              onClick={() => setMonth(m)}
+            >
+              {t(m ? 'by_month' : 'by_week')}
+            </Text>
+          ))}
         </View>
         <PeriodNav back={back} span={month ? 30 : 7} onChange={setBack} />
         {daily.some(d => d.value > 0) ? (

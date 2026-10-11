@@ -142,7 +142,8 @@
   border-bottom: none;
 }
 .datePick {
-  padding: 8rpx 24rpx;
+  padding: 14rpx 28rpx;
+  font-size: 28rpx;
   color: @accent;
   border-radius: 16rpx;
   background: var(--app-B3-N7, rgba(0, 0, 0, 0.06));
@@ -191,3 +192,24 @@
 .calOff { opacity: 0.25; }
 .calToday { font-weight: 700; color: @accent; }
 .calSel { background: @accent; color: #fff; }
+
+// строка периода как в образце: дата слева, стрелки справа
+.segGap { margin: 16rpx 0; }
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+.navArrows { display: flex; gap: 16rpx; }
+.arrowBtn {
+  width: 72rpx;
+  height: 64rpx;
+  line-height: 60rpx;
+  text-align: center;
+  font-size: 40rpx;
+  border-radius: 16rpx;
+  background: var(--app-B3-N7, rgba(0, 0, 0, 0.05));
+  color: @accent;
+}
+.valveBlock { margin-top: 24rpx; }

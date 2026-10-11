@@ -31,7 +31,9 @@ export default function ChannelPage() {
   const [hourly, setHourly] = useState<(number | null)[]>([]);
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
-  const [valveDay, setValveDay] = useState<{ intervals: [number, number][]; end: number } | null>(null);
+  const [valveDay, setValveDay] = useState<{ intervals: [number, number][]; end: number } | null>(
+    null
+  );
 
   useEffect(() => setDraft(border), [border]);
   useEffect(() => {
@@ -67,16 +69,19 @@ export default function ChannelPage() {
 
         <View className={styles.section}>
           <Text className={styles.sectionTitle}>{t('humidity_chart')}</Text>
-          <View className={`${styles.segment} ${chartStyles.seg3}`}>
-              {(['day', 'week', 'month'] as const).map(r => (
-                <Text
-                  key={r}
-                  className={`${styles.segItem} ${range === r ? styles.segActive : ''}`}
-                  onClick={() => setRange(r)}
-                >
-                  {t(`by_${r}`)}
-                </Text>
-              ))}
+          <View
+            className={`${styles.segment} ${chartStyles.segGap}`}
+            style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
+          >
+            {(['day', 'week', 'month'] as const).map(r => (
+              <Text
+                key={r}
+                className={`${styles.segItem} ${range === r ? styles.segActive : ''}`}
+                onClick={() => setRange(r)}
+              >
+                {t(`by_${r}`)}
+              </Text>
+            ))}
           </View>
           <PeriodNav back={dayBack} span={span} onChange={setDayBack} />
           {loading && <Text className={styles.muted}>{t('loading')}</Text>}
@@ -107,16 +112,16 @@ export default function ChannelPage() {
               line
             />
           )}
-          {!loading && !week && valveDay && (
-            <View>
-              <Text className={styles.sectionTitle}>{t('valve_chart')}</Text>
-              <ValveChart intervals={valveDay.intervals} end={valveDay.end} />
-            </View>
-          )}
           {!loading &&
             ((week && daily.length === 0) || (!week && !hourly.some(v => v !== null))) && (
               <Text className={styles.muted}>{t('no_data')}</Text>
             )}
+          {!loading && !week && valveDay && (
+            <View className={chartStyles.valveBlock}>
+              <Text className={styles.sectionTitle}>{t('valve_chart')}</Text>
+              <ValveChart intervals={valveDay.intervals} end={valveDay.end} />
+            </View>
+          )}
         </View>
 
         <View className={styles.section}>

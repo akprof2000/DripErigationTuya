@@ -13,7 +13,8 @@ export const MAX_BACK = 90; // на сколько дней назад можн�
 
 const DAY_MS = 86400000;
 const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const backOf = (d: Date) => Math.round((midnight(new Date()).getTime() - midnight(d).getTime()) / DAY_MS);
+const backOf = (d: Date) =>
+  Math.round((midnight(new Date()).getTime() - midnight(d).getTime()) / DAY_MS);
 const short = (back: number) => {
   const d = dayOf(back);
   return `${d.slice(6)}.${d.slice(4, 6)}`;
@@ -61,19 +62,23 @@ export default function PeriodNav({ back, span, onChange }: Props) {
   const weekdays = t('weekdays').split(',');
 
   return (
-    <View className={`${styles.row} ${chartStyles.dayRow}`}>
-      <Text className={styles.navBtn} onClick={() => set(back + span)}>
-        {'<'}
-      </Text>
-      <Text className={chartStyles.datePick} onClick={show}>
-        📅 {title}
-      </Text>
-      <Text
-        className={`${styles.navBtn} ${back === 0 ? chartStyles.navOff : ''}`}
-        onClick={() => set(back - span)}
-      >
-        {'>'}
-      </Text>
+    <View>
+      <View className={chartStyles.navRow}>
+        <Text className={chartStyles.datePick} onClick={show}>
+          {title}
+        </Text>
+        <View className={chartStyles.navArrows}>
+          <Text className={chartStyles.arrowBtn} onClick={() => set(back + span)}>
+            ‹
+          </Text>
+          <Text
+            className={`${chartStyles.arrowBtn} ${back === 0 ? chartStyles.navOff : ''}`}
+            onClick={() => set(back - span)}
+          >
+            ›
+          </Text>
+        </View>
+      </View>
       <Popup show={open} position="bottom" round onClose={() => setOpen(false)}>
         <View className={chartStyles.cal}>
           <View className={chartStyles.pickBar}>
