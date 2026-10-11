@@ -1,14 +1,18 @@
 // Экран грядки: влажность и состояние клапана, режим, порог, имя, калибровка датчика.
 import React, { useEffect, useState } from 'react';
-import { View, Text, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
+import { View, Text, Picker, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
 import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames } from '@/lib/hooks';
-import { loadDailyFromLog, loadHourlyFromLog, dayOf } from '@/lib/cloud';
+import { loadDailyFromLog, loadHourlyFromLog, loadValveDay, dayOf } from '@/lib/cloud';
 import Chart from '@/components/Chart';
+import ValveChart from '@/components/ValveChart';
+import chartStyles from '@/components/chart.module.less';
 import styles from '@/components/common.module.less';
 import page from '../home/index.module.less';
+
+const MAX_BACK = 90; // на сколько дней назад можно выбрать день
 
 export default function ChannelPage() {
   const query = useQuery<{ ch?: string }>();
@@ -20,13 +24,14 @@ export default function ChannelPage() {
   const { names, rename } = useBedNames();
   const name = bedName(names, ch);
   const [draft, setDraft] = useState(border);
-  // график: по часам за выбранный день (0 — сегодня, 1 — вчера, … 6) или по дням за неделю/месяц
+  // график: по часам за выбранный день (0 — сегодня, 1 — вчера, … MAX_BACK; день из календаря) или по дням за неделю/месяц
   const [dayBack, setDayBack] = useState(0);
   const [range, setRange] = useState<'day' | 'week' | 'month'>('day');
   const week = range !== 'day';
   const [hourly, setHourly] = useState<(number | null)[]>([]);
   const [daily, setDaily] = useState<{ day: string; value: number }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [valveDay, setValveDay] = useState<{ intervals: [number, number][]; end: number } | null>(null);
 
   useEffect(() => setDraft(border), [border]);
   useEffect(() => {
@@ -38,16 +43,29 @@ export default function ChannelPage() {
         .then(setDaily)
         .then(done, done);
     else
-      loadHourlyFromLog(devId, 130 + ch, dayOf(dayBack))
-        .then(setHourly)
-        .then(done, done);
+      Promise.all([
+        loadHourlyFromLog(devId, 130 + ch, dayOf(dayBack)).then(setHourly),
+        loadValveDay(devId, 140 + ch, dayOf(dayBack)).then(setValveDay),
+      ]).then(done, done);
   }, [devId, ch, dayBack, range]);
 
   const dayTitle = (back: number) => {
     if (back === 0) return t('today');
     if (back === 1) return t('yesterday');
     const d = dayOf(back);
-    return `${d.slice(6)}.${d.slice(4, 6)}`;
+    return `${d.slice(6)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
+  };
+  const iso = (back: number) => {
+    const d = dayOf(back);
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
+  };
+  const pickDay = (e: any) => {
+    const [y, m, d] = String(e.detail.value).split('-').map(Number);
+    const now = new Date();
+    const diff = Math.round(
+      (Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(y, m - 1, d)) / 86400000
+    );
+    setDayBack(Math.min(MAX_BACK, Math.max(0, diff)));
   };
 
   const [editing, setEditing] = useState(false);
@@ -83,10 +101,12 @@ export default function ChannelPage() {
           </View>
           {!week && (
             <View className={styles.row}>
-              <Text className={styles.navBtn} onClick={() => setDayBack(Math.min(6, dayBack + 1))}>
+              <Text className={styles.navBtn} onClick={() => setDayBack(Math.min(MAX_BACK, dayBack + 1))}>
                 {'<'}
               </Text>
-              <Text>{dayTitle(dayBack)}</Text>
+              <Picker mode="date" value={iso(dayBack)} start={iso(MAX_BACK)} end={iso(0)} onChange={pickDay}>
+                <Text className={chartStyles.datePick}>📅 {dayTitle(dayBack)}</Text>
+              </Picker>
               <Text className={styles.navBtn} onClick={() => setDayBack(Math.max(0, dayBack - 1))}>
                 {'>'}
               </Text>
@@ -119,6 +139,12 @@ export default function ChannelPage() {
               labelEvery={4}
               line
             />
+          )}
+          {!loading && !week && valveDay && (
+            <View>
+              <Text className={styles.sectionTitle}>{t('valve_chart')}</Text>
+              <ValveChart intervals={valveDay.intervals} end={valveDay.end} />
+            </View>
           )}
           {!loading &&
             ((week && daily.length === 0) || (!week && !hourly.some(v => v !== null))) && (

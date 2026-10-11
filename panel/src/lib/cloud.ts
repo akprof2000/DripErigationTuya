@@ -53,7 +53,7 @@ const ymd = (d: Date) =>
 const DAY_MS = 86400000;
 const dayKey = (timeStr: string) => timeStr.slice(0, 10).replace(/-/g, ''); // yyyy-MM-dd → yyyyMMdd
 
-type Report = { day: string; hour: number; value: number };
+type Report = { day: string; hour: number; value: number; raw: string; sec: number };
 
 /**
  * Отчёты DP за дни fromDay..toDay (yyyyMMdd), по возрастанию времени. Журнал
@@ -80,6 +80,11 @@ async function loadReports(
     day: dayKey(x.timeStr),
     hour: Number(x.timeStr.slice(11, 13)),
     value: Number(x.value),
+    raw: String(x.value),
+    sec:
+      Number(x.timeStr.slice(11, 13)) * 3600 +
+      Number(x.timeStr.slice(14, 16)) * 60 +
+      Number(x.timeStr.slice(17, 19) || 0),
   }));
   const fresh = rows.filter(r => r.day >= fromDay && r.day <= toDay);
   const all = acc.concat(fresh);
@@ -101,7 +106,7 @@ export async function loadHourlyFromLog(
   scale = 0
 ): Promise<(number | null)[]> {
   try {
-    const reports = await loadReports(devId, dpId, day, day);
+    const reports = await loadReports(devId, dpId, day, day, 40);
     const sum = new Array(24).fill(0);
     const cnt = new Array(24).fill(0);
     reports.forEach(r => {
@@ -154,5 +159,47 @@ export async function loadDailyFromLog(
   } catch (e) {
     console.warn('loadDailyFromLog', e);
     return [];
+  }
+}
+
+const OPEN_STATES = ['open_hum', 'forced_open'];
+
+/**
+ * Открыт ли клапан в течение дня (yyyyMMdd): интервалы [from, to) в долях суток.
+ * Состояние на начало дня — последний отчёт до него; 'hyst' (зона гистерезиса)
+ * сохраняет предыдущее положение. Для сегодня интервалы обрываются на «сейчас».
+ */
+export async function loadValveDay(
+  devId: string,
+  dpId: number,
+  day: string
+): Promise<{ intervals: [number, number][]; end: number } | null> {
+  try {
+    const y = Number(day.slice(0, 4));
+    const m = Number(day.slice(4, 6)) - 1;
+    const prev = ymd(new Date(y, m, Number(day.slice(6)) - 1));
+    const reports = await loadReports(devId, dpId, prev, day, 40);
+    if (!reports.length) return null;
+    const now = new Date();
+    const end = day === ymd(now) ? (now.getHours() * 3600 + now.getMinutes() * 60) / 86400 : 1;
+    let open = false;
+    let since = 0;
+    const intervals: [number, number][] = [];
+    reports.forEach(r => {
+      const isOpen = r.raw === 'hyst' ? open : OPEN_STATES.includes(r.raw);
+      if (r.day < day) {
+        open = isOpen;
+        return;
+      }
+      const at = r.sec / 86400;
+      if (isOpen && !open) since = at;
+      if (!isOpen && open) intervals.push([since, at]);
+      open = isOpen;
+    });
+    if (open) intervals.push([since, end]);
+    return { intervals, end };
+  } catch (e) {
+    console.warn('loadValveDay', e);
+    return null;
   }
 }
