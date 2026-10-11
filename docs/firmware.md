@@ -67,13 +67,15 @@ LittleFS: без SD-карты пропадут `/state.json` и очередь 
 
 Кнопка: удерживать 5 с — портал настройки Wi-Fi.
 
-## Push-уведомления (ещё не настроено)
+## Push-уведомления
 
-Консоль Tuya → продукт → **Product Configuration → Device Notification → Settings**
-(`platform.tuya.com/device/equipment?pid=0uo7msdnt2yn1lgp`): правила «DP → push».
-Разумный набор: `fault` содержит `filter_clog` → «Засорился фильтр»; `rtc`/`sd`/`valves`
-→ «Авария контроллера, полив остановлен». Для событий (`event`) проще
-автоматизация в Smart Life: «если Событие изменилось → уведомление».
+Настроены в консоли Tuya → продукт → **Device Notification**
+(`platform.tuya.com/device/equipment?pid=0uo7msdnt2yn1lgp`), тексты на русском,
+английском и китайском:
+
+- **Засор фильтра** — DP `fault` содержит `filter_clog`;
+- **Авария платы клапанов** — DP `fault` содержит `valves`;
+- **Контроллер не в сети** — устройство офлайн больше 30 минут.
 
 ## MicroPython-вариант и прогон без платы
 
