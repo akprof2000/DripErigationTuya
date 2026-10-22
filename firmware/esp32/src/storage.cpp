@@ -6,6 +6,9 @@
 #include "log.h"
 
 namespace {
+#ifndef SD_FORMAT_IF_EMPTY
+#define SD_FORMAT_IF_EMPTY false     // разовая сборка с -DSD_FORMAT_IF_EMPTY=true форматирует карту без FAT
+#endif
 constexpr int SD_CS = 5;            // VSPI: SCK 18, MISO 19, MOSI 23, CS 5
 constexpr int SD_TRIES = 3;
 constexpr uint32_t SD_PAUSE_MS = 300;
@@ -21,7 +24,7 @@ bool storageBegin() {
         (unsigned)(LittleFS.totalBytes() / 1024));
   s_sd = false;
   for (int i = 1; i <= SD_TRIES && !s_sd; i++) {
-    if (SD.begin(SD_CS) && SD.cardType() != CARD_NONE) {
+    if (SD.begin(SD_CS, SPI, 4000000, "/sd", 5, SD_FORMAT_IF_EMPTY) && SD.cardType() != CARD_NONE) {
       s_sd = true;
       LOG_I("storage: SD %u МБ", (unsigned)(SD.cardSize() / (1024 * 1024)));
     } else {
