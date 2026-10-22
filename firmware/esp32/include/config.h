@@ -18,12 +18,18 @@ constexpr const char* Off = "off";
 constexpr const char* Greenhouse = "greenhouse";
 }
 
+// Ёмкостный датчик v1.2 от 3,3 В на этой плате (замер 2026-10-23): в воде ~1015, на воздухе ~3240.
+// Автокалибровка дальше расширяет границы по реальным показаниям.
+constexpr uint16_t SOIL_ADC_WET = 1015;
+constexpr uint16_t SOIL_ADC_DRY = 3240;
+constexpr int CALIB_DEFAULTS_VERSION = 1;   // поднять, чтобы разово переписать границы всех каналов
+
 struct ChannelCfg {
   String name = "🌱 Растение";   // только для консоли: названия грядок живут в облаке (панель)
   uint8_t border = 60;           // порог влажности, %
   String mode = Mode::Auto;
-  uint16_t minVal = 1024;        // АЦП «вода»
-  uint16_t maxVal = 1024;        // АЦП «сухо»
+  uint16_t minVal = SOIL_ADC_WET;   // АЦП «вода»
+  uint16_t maxVal = SOIL_ADC_DRY;   // АЦП «сухо»
 };
 
 struct Config {
@@ -33,6 +39,7 @@ struct Config {
   int deltaHum = 5;
   uint8_t boostPumpValves = 9;   // 1..8 — держать насос при ≥N открытых клапанах, 9 = никогда
   ChannelCfg channels[NUM_CHANNELS];
+  int calibDefaults = CALIB_DEFAULTS_VERSION;   // какие умолчания границ уже применены
   uint32_t utimeAllClosed = 0;
   float flowSession = 0;
   float flowTotal = 0;

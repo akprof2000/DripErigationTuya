@@ -58,6 +58,16 @@ bool Config::load(fs::FS& fs, const char* path) {
     pick(c, "min_val", ch.minVal);
     pick(c, "max_val", ch.maxVal);
   }
+  int calibV = 0;
+  pick(d, "calib_defaults", calibV);
+  if (calibV < CALIB_DEFAULTS_VERSION) {   // разово: новые границы датчиков вместо старых 1024/1024 и шума
+    for (ChannelCfg& ch : channels) {
+      ch.minVal = SOIL_ADC_WET;
+      ch.maxVal = SOIL_ADC_DRY;
+    }
+    LOG_I("config: границы датчиков по умолчанию [%d; %d]", SOIL_ADC_WET, SOIL_ADC_DRY);
+  }
+  calibDefaults = CALIB_DEFAULTS_VERSION;
   LOG_I("config: %s загружен", path);
   return true;
 }
@@ -77,6 +87,7 @@ bool Config::save(fs::FS& fs, const char* path) const {
   doc["clog_threshold"] = clogThreshold;
   doc["flow_monitor"] = flowMonitor;
   doc["autocal_no_delay"] = autocalNoDelay;
+  doc["calib_defaults"] = calibDefaults;
   JsonArray chs = doc["channels"].to<JsonArray>();
   for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
     const ChannelCfg& ch = channels[i];

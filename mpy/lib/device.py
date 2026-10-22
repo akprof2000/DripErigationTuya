@@ -56,7 +56,7 @@ CONFIG_FIELDS = ("run_on_rain", "run_on_night", "delta_calib", "delta_hum", "boo
 
 
 class Channel:
-    def __init__(self, name="🌱 Растение", border=60, mode=MODE_AUTO, min_val=1024, max_val=1024):
+    def __init__(self, name="🌱 Растение", border=60, mode=MODE_AUTO, min_val=1015, max_val=3240):
         # название грядки живёт в облачных свойствах устройства (его хранит панель);
         # здесь — только для консоли эмулятора
         self.name = name
@@ -551,7 +551,7 @@ class Device:
             self.fm = FlowMonitor(self.cfg)
             self.cfg.flow_total, self.cfg.flow_session, self.cfg.utime_all_closed = keep
             for i in range(self.n):
-                self.set_low_high(i, 1024, 1024)
+                self.set_low_high(i, 1015, 3240)
             self.save()
             self.event("reset_settings")
         elif cmd == "clear_flow":

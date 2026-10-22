@@ -113,6 +113,14 @@ void App::loop() {
   sendEvents();
   if (_upSec - _sysAt >= SYS_INFO_EVERY_S || _sysAt == 0) sysInfo();
 
+#if LOG_LEVEL >= 4
+  if (_upSec % 2 == 0) {   // отладка датчиков: сырые АЦП всех каналов
+    char line[96];
+    int n = 0;
+    for (uint8_t i = 0; i < 8; i++) n += snprintf(line + n, sizeof(line) - n, " %d", _hw.adc(i));
+    LOG_D("adc:%s", line);
+  }
+#endif
   tickButton();
   tickLed(up);
 
@@ -183,6 +191,13 @@ void App::queue(JsonObjectConst packet, bool full) {
   JsonObject f = filtered.to<JsonObject>();
   _reporter.filter(packet, _upSec, full, f);
   if (f.size() == 0) return;
+#if LOG_LEVEL >= 4
+  {
+    String dbg;
+    serializeJson(f, dbg);
+    LOG_D("dp → %s", dbg.c_str());
+  }
+#endif
   JsonDocument byId;
   JsonObject ids = byId.to<JsonObject>();
   if (dp::encodeIds(f, ids) == 0) return;

@@ -427,7 +427,7 @@ void Device::resetSettings() {
   _cfg.utimeAllClosed = allClosed;
   _fm.recalibrate();
   _fm.dirty();
-  for (uint8_t i = 0; i < NUM_CHANNELS; i++) setLowHigh(i, 1024, 1024);
+  for (uint8_t i = 0; i < NUM_CHANNELS; i++) setLowHigh(i, SOIL_ADC_WET, SOIL_ADC_DRY);
 }
 
 void Device::command(const String& cmd, uint32_t nowMs, uint32_t unix) {
