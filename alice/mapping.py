@@ -2,7 +2,10 @@
 
 Устройства:
   bed_1 … bed_8   кран: вкл = «Всегда вкл», выкл = «Выкл», режим «авто»/«эко» = Авто/Парник; влажность
+  bed_N_auto      выключатель «<имя> автополив»: вкл = Авто, выкл = Выкл
+  bed_N_eco       выключатель «<имя> полив в парнике»: вкл = Парник, выкл = Выкл
   all             выключатель «Полив»: то же для всех грядок сразу (DP mode_all)
+  all_auto, all_eco  «Автополив» / «Полив в парнике» для всех грядок
   drain           выключатель «Дренаж»: включить = разовый пролив (команда drain), выключится сам
   status          датчик «Контроллер полива»: события для сценариев и уведомлений
                     water_level low  — засор фильтра
@@ -22,6 +25,21 @@ EVENT = "devices.properties.event"
 # режим грядки ⇄ режим Яндекса (instance program); «on»/«off» — через on_off
 YA_MODE = {"auto": "auto", "greenhouse": "eco"}
 TUYA_MODE = {v: k for k, v in YA_MODE.items()}
+
+# выключатели режимов: суффикс id → (режим Tuya, хвост имени)
+MODE_SWITCHES = {"auto": ("auto", "автополив"), "eco": ("greenhouse", "полив в парнике")}
+
+
+def _split(device_id):
+    """bed_3_auto → ("bed_3", "auto"); all_eco → ("all", "eco"); прочие → (id, None)."""
+    base, _, suffix = device_id.rpartition("_")
+    if base and suffix in MODE_SWITCHES:
+        return base, suffix
+    return device_id, None
+
+
+def _mode_code(base):
+    return "mode_all" if base == "all" else "mode_%d" % int(base[4:])
 
 
 def bed_name(status, ch):
@@ -72,8 +90,14 @@ def devices(status, room="Улица"):
             "capabilities": [_on_off(), _mode_cap(["auto", "eco"])],
             "properties": [_float("humidity", "unit.percent")],
         })
+        for suffix, (_, tail) in MODE_SWITCHES.items():
+            out.append({"id": "bed_%d_%s" % (ch, suffix), "name": "%s %s" % (bed_name(status, ch), tail),
+                        "room": room, "type": "devices.types.switch", "capabilities": [_on_off()]})
     out.append({"id": "all", "name": "Полив", "room": room, "type": "devices.types.switch",
                 "capabilities": [_on_off(), _mode_cap(["auto", "eco"])]})
+    for suffix, (_, tail) in MODE_SWITCHES.items():
+        out.append({"id": "all_" + suffix, "name": tail.capitalize(), "room": room,
+                    "type": "devices.types.switch", "capabilities": [_on_off()]})
     out.append({"id": "drain", "name": "Дренаж", "room": room, "type": "devices.types.switch",
                 "capabilities": [_on_off()]})
     out.append({"id": "status", "name": "Контроллер полива", "room": room, "type": "devices.types.sensor",
@@ -98,6 +122,11 @@ def _bed_mode(status, ch):
 
 def state(device_id, status):
     """Текущее состояние одного устройства (capabilities + properties)."""
+    base, suffix = _split(device_id)
+    if suffix:
+        mode = MODE_SWITCHES[suffix][0]
+        chans = range(1, CHANNELS + 1) if base == "all" else [int(base[4:])]
+        return {"capabilities": [_cap(ON_OFF, "on", all(_bed_mode(status, ch) == mode for ch in chans))]}
     if device_id.startswith("bed_"):
         ch = int(device_id[4:])
         mode = _bed_mode(status, ch)
@@ -126,8 +155,11 @@ def commands(device_id, capability):
     """Действие Алисы → команды Tuya {code: value}."""
     ctype = capability["type"]
     value = capability["state"]["value"]
+    base, suffix = _split(device_id)
+    if suffix and ctype == ON_OFF:
+        return {_mode_code(base): MODE_SWITCHES[suffix][0] if value else "off"}
     if device_id.startswith("bed_") or device_id == "all":
-        code = "mode_all" if device_id == "all" else "mode_%d" % int(device_id[4:])
+        code = _mode_code(device_id)
         if ctype == ON_OFF:
             return {code: "on" if value else "off"}
         if ctype == MODE:

@@ -45,10 +45,24 @@ def call(path, method="POST", body=None, token=True, query=None):
 class MappingTest(unittest.TestCase):
     def test_devices(self):
         devs = mapping.devices(STATUS)
-        self.assertEqual([d["id"] for d in devs][:3], ["bed_1", "bed_2", "bed_3"])
-        self.assertEqual(devs[2]["name"], "Кабачки")
-        self.assertEqual(devs[0]["name"], "Растение 1")
-        self.assertEqual(len(devs), 11)
+        self.assertEqual([d["id"] for d in devs][:3], ["bed_1", "bed_1_auto", "bed_1_eco"])
+        by_id = {d["id"]: d["name"] for d in devs}
+        self.assertEqual(by_id["bed_3"], "Кабачки")
+        self.assertEqual(by_id["bed_3_eco"], "Кабачки полив в парнике")
+        self.assertEqual(by_id["bed_1_auto"], "Растение 1 автополив")
+        self.assertEqual(by_id["all_auto"], "Автополив")
+        self.assertEqual(len(devs), 29)
+
+    def test_mode_switches(self):
+        st = lambda d: mapping.state(d, STATUS)["capabilities"][0]["state"]["value"]
+        self.assertTrue(st("bed_1_auto"))
+        self.assertFalse(st("bed_1_eco"))
+        self.assertFalse(st("all_auto"))   # грядка 8 выключена
+        on = {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}}
+        off = {"type": mapping.ON_OFF, "state": {"instance": "on", "value": False}}
+        self.assertEqual(mapping.commands("bed_4_eco", on), {"mode_4": "greenhouse"})
+        self.assertEqual(mapping.commands("bed_4_auto", off), {"mode_4": "off"})
+        self.assertEqual(mapping.commands("all_auto", on), {"mode_all": "auto"})
 
     def test_state(self):
         s = mapping.state("bed_8", STATUS)
