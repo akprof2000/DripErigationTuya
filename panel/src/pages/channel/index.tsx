@@ -16,7 +16,16 @@ import page from '../home/index.module.less';
 export default function ChannelPage() {
   const query = useQuery<{ ch?: string }>();
   const ch = Math.min(8, Math.max(1, Number(query.ch) || 1)) as Ch;
-  const { humidity, valve, mode, border } = useChannel(ch);
+  const { humidity, valve, mode: reported, border } = useChannel(ch);
+  // режим подсвечивается сразу по нажатию; подтверждение от платы приходит через облако за 1–3 с
+  const [pendingMode, setPendingMode] = useState<string | null>(null);
+  useEffect(() => setPendingMode(null), [reported]);
+  useEffect(() => {
+    if (!pendingMode) return undefined;
+    const timer = setTimeout(() => setPendingMode(null), 10000); // плата не ответила — показать её режим
+    return () => clearTimeout(timer);
+  }, [pendingMode]);
+  const mode = pendingMode ?? reported;
   const actions = useActions();
   const devId = useDevice(d => d.devInfo?.devId);
   const adc = parseAdcRaw(useProps(p => p.adc_raw as string))[ch - 1];
@@ -131,7 +140,10 @@ export default function ChannelPage() {
               <Text
                 key={m}
                 className={`${styles.segItem} ${m === mode ? styles.segActive : ''}`}
-                onClick={() => actions[`mode_${ch}`].set(m)}
+                onClick={() => {
+                  setPendingMode(m);
+                  actions[`mode_${ch}`].set(m);
+                }}
               >
                 {t(`mode_${m}`)}
               </Text>

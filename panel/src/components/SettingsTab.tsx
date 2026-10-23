@@ -1,5 +1,5 @@
 // Вкладка «Настройки»: всё из Config прошивки + режим всех грядок + команды.
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, navigateTo, reLaunch } from '@ray-js/ray';
 import { Button, Cell, CellGroup, Dialog, DialogInstance, Stepper, Switch } from '@ray-js/smart-ui';
 import { useActions, useProps } from '@ray-js/panel-sdk';
@@ -13,6 +13,7 @@ type NumCode = 'delta_hum' | 'delta_calib' | 'boost_pump_valves' | 'clog_thresho
 export default function SettingsTab() {
   const p = useProps();
   const actions = useActions();
+  const [allPressed, setAllPressed] = useState<string | null>(null);
 
   const toggle = (code: BoolCode) => (
     <Switch size="24px" checked={!!p[code]} onChange={(e: any) => actions[code].set(!!e.detail)} />
@@ -65,7 +66,15 @@ export default function SettingsTab() {
         <Text className={styles.sectionTitle}>{t('mode_all')}</Text>
         <View className={styles.segment}>
           {MODES.map(m => (
-            <Text key={m} className={styles.segItem} onClick={() => actions.mode_all.set(m)}>
+            <Text
+              key={m}
+              className={`${styles.segItem} ${allPressed === m ? styles.segActive : ''}`}
+              onClick={() => {
+                setAllPressed(m);
+                setTimeout(() => setAllPressed(null), 1500);
+                actions.mode_all.set(m);
+              }}
+            >
               {t(`mode_${m}`)}
             </Text>
           ))}
