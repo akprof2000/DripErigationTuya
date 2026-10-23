@@ -177,9 +177,13 @@ void Device::valveOpen(uint8_t i, uint32_t nowMs, uint32_t unix) {
   _hw.setValve(i, true);
   _isOpenFlag = true;
   if (_isClose[i]) {
-    setPump(true);
-    _pumpStarting = true;
-    _pumpStartMs = nowMs;
+    if (_cfg.pumpStartSec) {   // пусковое окно: насос на pump_start_sec после открытия клапана
+      setPump(true);
+      _pumpStarting = true;
+      _pumpStartMs = nowMs;
+    } else {
+      stopPumpIfNeed();   // без пускового окна — только по порогу boost_pump_valves
+    }
     if (countOpen() == 0) _flowSession = 0;   // flowResetSession
   }
   _isClose[i] = false;
@@ -353,7 +357,7 @@ void Device::tick(uint32_t nowMs, uint32_t unix) {
   // ⏱️ неблокирующие таймеры
   if (_fillActive && nowMs - _fillStartMs >= FILLING_WAIT_MS) { _fillActive = false; _hw.setFill(false); }
   spillageTick(nowMs);
-  if (_pumpStarting && nowMs - _pumpStartMs > PUMP_TIMEOUT_MS) { _pumpStarting = false; stopPumpIfNeed(); }
+  if (_pumpStarting && nowMs - _pumpStartMs > (uint32_t)_cfg.pumpStartSec * 1000UL) { _pumpStarting = false; stopPumpIfNeed(); }
   if (_bootUnix == 0 && unix) _bootUnix = unix;
 
   // 💧 расходомер
@@ -409,6 +413,7 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
   else if (c == "delta_calib") _cfg.deltaCalib = (int)number;
   else if (c == "boost_pump_valves") { _cfg.boostPumpValves = (uint8_t)number; stopPumpIfNeed(); }
   else if (c == "clog_threshold") _cfg.clogThreshold = (uint8_t)number;
+  else if (c == "pump_start_sec") _cfg.pumpStartSec = (uint16_t)number;
   else if (c == "flow_monitor") _cfg.flowMonitor = flag;
   else if (c == "autocal_no_delay") _cfg.autocalNoDelay = flag;
   else if (c == "mode_all") { for (auto& ch : _cfg.channels) ch.mode = text; _recheck = true; }
@@ -594,6 +599,7 @@ void Device::snapshot(JsonObject out) {
   dp::putNumber(out, "delta_calib", _cfg.deltaCalib);
   dp::putNumber(out, "boost_pump_valves", _cfg.boostPumpValves);
   dp::putNumber(out, "clog_threshold", _cfg.clogThreshold);
+  dp::putNumber(out, "pump_start_sec", _cfg.pumpStartSec);
   dp::putBool(out, "flow_monitor", _cfg.flowMonitor);
   dp::putBool(out, "autocal_no_delay", _cfg.autocalNoDelay);
   String wz;

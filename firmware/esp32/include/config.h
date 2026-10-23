@@ -46,6 +46,7 @@ struct Config {
   float cleanFlowPerValve = 0;
   float cleanFlowDrain = 0;
   uint8_t clogThreshold = 50;
+  uint16_t pumpStartSec = 30;    // пусковое окно насоса после открытия клапана, 0 — не включать
   bool flowMonitor = true;
   bool autocalNoDelay = false;
 

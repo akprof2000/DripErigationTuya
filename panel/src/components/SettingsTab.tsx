@@ -8,7 +8,7 @@ import { LANGS, Lang, currentLang, setLang } from '@/i18n';
 import styles from './common.module.less';
 
 type BoolCode = 'run_on_rain' | 'run_on_night' | 'flow_monitor' | 'autocal_no_delay';
-type NumCode = 'delta_hum' | 'delta_calib' | 'boost_pump_valves' | 'clog_threshold';
+type NumCode = 'delta_hum' | 'delta_calib' | 'boost_pump_valves' | 'clog_threshold' | 'pump_start_sec';
 
 export default function SettingsTab() {
   const p = useProps();
@@ -60,6 +60,11 @@ export default function SettingsTab() {
       <CellGroup inset title=" ">
         <Cell title={`${t('s_delta_hum')}, ±%`} slot={{ rightIcon: stepper('delta_hum', 0, 50) }} />
         <Cell title={t('s_delta_calib')} slot={{ rightIcon: stepper('delta_calib', 0, 500) }} />
+        <Cell
+          title={`${t('s_pump_start')}, ${t('sec')}`}
+          label={t('s_pump_start_hint')}
+          slot={{ rightIcon: stepper('pump_start_sec', 0, 600) }}
+        />
         <Cell
           title={t('s_boost_pump')}
           label={boost >= 9 ? t('s_boost_off') : t('s_boost_from', boost)}

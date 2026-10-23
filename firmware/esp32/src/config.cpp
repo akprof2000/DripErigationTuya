@@ -45,6 +45,7 @@ bool Config::load(fs::FS& fs, const char* path) {
   pick(d, "clean_flow_per_valve", cleanFlowPerValve);
   pick(d, "clean_flow_drain", cleanFlowDrain);
   pick(d, "clog_threshold", clogThreshold);
+  pick(d, "pump_start_sec", pumpStartSec);
   pick(d, "flow_monitor", flowMonitor);
   pick(d, "autocal_no_delay", autocalNoDelay);
   JsonArrayConst chs = d["channels"].as<JsonArrayConst>();
@@ -85,6 +86,7 @@ bool Config::save(fs::FS& fs, const char* path) const {
   doc["clean_flow_per_valve"] = cleanFlowPerValve;
   doc["clean_flow_drain"] = cleanFlowDrain;
   doc["clog_threshold"] = clogThreshold;
+  doc["pump_start_sec"] = pumpStartSec;
   doc["flow_monitor"] = flowMonitor;
   doc["autocal_no_delay"] = autocalNoDelay;
   doc["calib_defaults"] = calibDefaults;

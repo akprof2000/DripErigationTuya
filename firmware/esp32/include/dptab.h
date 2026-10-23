@@ -40,6 +40,7 @@ static const DpInfo DP_TABLE[] = {
   {124, "event", DpType::String, DpMode::RO, 0, 0, 0, nullptr, 0, nullptr, 0, 255, 0},  // Событие (JSON с кодом, лента вместо уведомлений Telegram)
   {125, "pump_state", DpType::Enum, DpMode::RO, 0, 0, 0, DP_ENUM_pump_state, 4, nullptr, 0, 255, 0},  // Насос давления: причина работы (off — выключен, start — пусковые 30 с, valves — по порогу открытых клапанов, drain — пролив дренажа)
   {126, "sys_info", DpType::String, DpMode::RO, 0, 0, 0, nullptr, 0, nullptr, 0, 255, 0},  // О контроллере (JSON): fw, up — аптайм с, heap — свободно байт, rssi, t — время устройства, rtc/sd — 1/0, pulses — импульсов расходомера, last_pulse — с назад (-1 если не было), pending — записей в офлайн-очереди
+  {127, "pump_start_sec", DpType::Value, DpMode::RW, 0, 600, 0, nullptr, 0, nullptr, 0, 255, 0},  // Пусковое окно насоса: сколько секунд держать насос после открытия клапана (0 — не включать) [с]
   {131, "humidity_1", DpType::Value, DpMode::RO, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 1},  // Влажность 1 [%]
   {132, "humidity_2", DpType::Value, DpMode::RO, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 2},  // Влажность 2 [%]
   {133, "humidity_3", DpType::Value, DpMode::RO, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 3},  // Влажность 3 [%]
@@ -73,4 +74,4 @@ static const DpInfo DP_TABLE[] = {
   {167, "border_7", DpType::Value, DpMode::RW, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 7},  // Порог влажности 7 [%]
   {168, "border_8", DpType::Value, DpMode::RW, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 8},  // Порог влажности 8 [%]
 };
-static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 58
+static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 59
