@@ -1,6 +1,6 @@
 // Хуки панели поверх SDM: чтение DP в «человеческом» виде и названия грядок.
 import { useEffect, useState, useCallback } from 'react';
-import { useProps, useDevice } from '@ray-js/panel-sdk';
+import { useProps, useDevice, useActions } from '@ray-js/panel-sdk';
 import { Ch, scaled, parseSysInfo } from './dp';
 import { loadNames, saveNames } from './cloud';
 
@@ -38,6 +38,7 @@ export function useStatus() {
  */
 export function useBedNames() {
   const devId = useDevice(d => d.devInfo?.devId);
+  const actions = useActions();
   const [names, setNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -52,8 +53,10 @@ export function useBedNames() {
       next[ch - 1] = name.trim();
       setNames(next);
       if (devId) await saveNames(devId, next);
+      // на контроллер — для текста push-уведомлений; пусто — «Растение N» по умолчанию
+      actions[`name_${ch}`]?.set(next[ch - 1]);
     },
-    [names, devId]
+    [names, devId, actions]
   );
 
   return { names, rename };

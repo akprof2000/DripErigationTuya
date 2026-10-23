@@ -71,7 +71,7 @@ export function eventText(e: DeviceEvent, names: string[]) {
   }
 }
 
-export const bedName = (names: string[], ch: number) => names[ch - 1] || `${t('bed')} ${ch}`;
+export const bedName = (names: string[], ch: number) => names[ch - 1] || `${t('plant')} ${ch}`;
 
 /** Кружок на карточке грядки: синий — идёт полив, жёлтый — состояние ещё
  *  неизвестно (после старта), зелёный — клапан закрыт, полива нет. */

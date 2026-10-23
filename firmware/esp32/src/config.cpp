@@ -54,6 +54,7 @@ bool Config::load(fs::FS& fs, const char* path) {
     if (i >= NUM_CHANNELS) break;
     ChannelCfg& ch = channels[i++];
     pickStr(c, "name", ch.name);
+    if (ch.name == "🌱 Растение") ch.name = "";   // старое умолчание из бота
     pick(c, "border", ch.border);
     pickStr(c, "mode", ch.mode);
     pick(c, "min_val", ch.minVal);

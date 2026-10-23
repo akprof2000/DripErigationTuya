@@ -1270,5 +1270,149 @@ export const defaultSchema = [
       "unit": "%"
     },
     "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_1",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 171,
+    "mode": "rw",
+    "name": "name_1",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_2",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 172,
+    "mode": "rw",
+    "name": "name_2",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_3",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 173,
+    "mode": "rw",
+    "name": "name_3",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_4",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 174,
+    "mode": "rw",
+    "name": "name_4",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_5",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 175,
+    "mode": "rw",
+    "name": "name_5",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_6",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 176,
+    "mode": "rw",
+    "name": "name_6",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_7",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 177,
+    "mode": "rw",
+    "name": "name_7",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "name_8",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 178,
+    "mode": "rw",
+    "name": "name_8",
+    "property": {
+      "type": "string",
+      "maxlen": 32
+    },
+    "type": "obj"
   }
 ] as const;

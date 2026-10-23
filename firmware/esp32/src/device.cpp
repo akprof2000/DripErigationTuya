@@ -404,10 +404,11 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
   int us = c.lastIndexOf('_');
   String base = us > 0 ? c.substring(0, us) : c;
   String num = us > 0 ? c.substring(us + 1) : "";
-  if (num.length() && isDigit(num[0]) && (base == "mode" || base == "border")) {   // mode_all — не канал
+  if (num.length() && isDigit(num[0]) && (base == "mode" || base == "border" || base == "name")) {   // mode_all — не канал
     int ch = num.toInt();
     if (ch < 1 || ch > NUM_CHANNELS) { err = "bad channel"; return false; }
     if (base == "mode") _cfg.channels[ch - 1].mode = text;
+    else if (base == "name") _cfg.channels[ch - 1].name = text.substring(0, 32);
     else _cfg.channels[ch - 1].border = (uint8_t)number;
     _recheck = true;
     save();
@@ -624,6 +625,8 @@ void Device::snapshot(JsonObject out) {
     snprintf(code, sizeof(code), "valve_%d", i + 1);    dp::putEnum(out, code, _oldMode[i]);
     snprintf(code, sizeof(code), "mode_%d", i + 1);     dp::putEnum(out, code, c.mode.c_str());
     snprintf(code, sizeof(code), "border_%d", i + 1);   dp::putNumber(out, code, c.border);
+    snprintf(code, sizeof(code), "name_%d", i + 1);
+    dp::putString(out, code, c.name.length() ? c.name : String("Растение ") + (i + 1));
   }
 }
 

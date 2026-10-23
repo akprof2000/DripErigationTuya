@@ -203,7 +203,7 @@ export default function ChannelPage() {
       >
         <Field
           value={nameDraft}
-          placeholder={`${t('bed')} ${ch}`}
+          placeholder={`${t('plant')} ${ch}`}
           maxlength={30}
           onChange={(e: any) => setNameDraft(String(e.detail))}
         />

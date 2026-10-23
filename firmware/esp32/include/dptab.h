@@ -73,5 +73,13 @@ static const DpInfo DP_TABLE[] = {
   {166, "border_6", DpType::Value, DpMode::RW, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 6},  // Порог влажности 6 [%]
   {167, "border_7", DpType::Value, DpMode::RW, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 7},  // Порог влажности 7 [%]
   {168, "border_8", DpType::Value, DpMode::RW, 0, 100, 0, nullptr, 0, nullptr, 0, 255, 8},  // Порог влажности 8 [%]
+  {171, "name_1", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 1},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 1
+  {172, "name_2", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 2},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 2
+  {173, "name_3", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 3},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 3
+  {174, "name_4", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 4},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 4
+  {175, "name_5", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 5},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 5
+  {176, "name_6", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 6},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 6
+  {177, "name_7", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 7},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 7
+  {178, "name_8", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 8},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 8
 };
-static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 59
+static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 67

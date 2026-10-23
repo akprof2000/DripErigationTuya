@@ -25,7 +25,7 @@ constexpr uint16_t SOIL_ADC_DRY = 3240;
 constexpr int CALIB_DEFAULTS_VERSION = 1;   // поднять, чтобы разово переписать границы всех каналов
 
 struct ChannelCfg {
-  String name = "🌱 Растение";   // только для консоли: названия грядок живут в облаке (панель)
+  String name;                   // название грядки (DP name_N, пишет панель); пусто — «Растение N»
   uint8_t border = 60;           // порог влажности, %
   String mode = Mode::Auto;
   uint16_t minVal = SOIL_ADC_WET;   // АЦП «вода»

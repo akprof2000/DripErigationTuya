@@ -56,7 +56,7 @@ CONFIG_FIELDS = ("run_on_rain", "run_on_night", "delta_calib", "delta_hum", "boo
 
 
 class Channel:
-    def __init__(self, name="🌱 Растение", border=60, mode=MODE_AUTO, min_val=1015, max_val=3240):
+    def __init__(self, name="", border=60, mode=MODE_AUTO, min_val=1015, max_val=3240):
         # название грядки живёт в облачных свойствах устройства (его хранит панель);
         # здесь — только для консоли эмулятора
         self.name = name
