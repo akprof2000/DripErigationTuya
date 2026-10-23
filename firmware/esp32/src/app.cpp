@@ -105,7 +105,8 @@ void App::loop() {
     _dev->setFaults(faults);
     LOG_W("Аварии: %s%s", (faults & FAULT_VALVES) ? "клапаны " : "", (faults & FAULT_RTC) ? "время " : "");
   }
-  _dev->tick(ms, _clock.unix());
+  // millis() заново: команды из облака (applyDp) ставят таймеры позже `ms`, иначе разница уходит в минус
+  _dev->tick(millis(), _clock.unix());
 
   JsonDocument changed;
   JsonObject ch = changed.to<JsonObject>();
@@ -276,7 +277,14 @@ void App::tickSerial() {
     _cmd = "";
     cmd.trim();
     if (cmd == "relays") relayTest();
-    else if (cmd.length()) LOG_W("команда «%s» не знакома (есть: relays)", cmd.c_str());
+    else if (cmd == "state") {
+      String v;
+      for (uint8_t i = 0; i < Hardware::N; i++) v += _hw.valveOpen(i) ? '1' : '0';
+      LOG_I("состояние: клапаны %s, насос %d, налив %d, дренаж %d, GPIO насос %d налив %d дренаж %d", v.c_str(),
+            _hw.pumpOn(), _hw.fillOn(), _hw.drainOn(), digitalRead(pins::PUMP), digitalRead(pins::FILL),
+            digitalRead(pins::DRAIN));
+    }
+    else if (cmd.length()) LOG_W("команда «%s» не знакома (есть: relays, state)", cmd.c_str());
   }
 }
 

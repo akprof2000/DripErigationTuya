@@ -9,7 +9,7 @@
 #include <Wire.h>
 
 namespace pins {
-constexpr uint8_t LED = 2, BUTTON = 16, LIGHT = 4, RAIN = 15, FILL = 17, DRAIN = 25, PUMP = 26,
+constexpr uint8_t LED = 2, BUTTON = 16, LIGHT = 4, RAIN = 15, PUMP = 17, DRAIN = 25, FILL = 26,   // J5: насос, дренаж; J7: заливка
                   FLOW = 27, ADC_IN = 33, SDA = 21, SCL = 22;
 constexpr uint8_t MUX[3] = {12, 13, 14};
 constexpr uint8_t PCF_ADDR = 0x20, RTC_ADDR = 0x68;

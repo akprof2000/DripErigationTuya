@@ -51,4 +51,7 @@ class App {
   void shutdown();
   void tickButton();
   void tickLed(bool wifiUp);
+  void tickSerial();
+  void relayTest();
+  String _cmd;
 };
