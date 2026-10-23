@@ -280,6 +280,9 @@ void Device::checkWeather(uint32_t nowMs, bool& blocked, bool& nightBlock, bool&
     if (!_cfg.runOnRain) {
       blocked = rainBlock = true;
       if (!_oldRMode) { _oldRMode = true; eventSimple("rain_block"); }
+    } else if (_oldRMode) {   // дождь, но работу в дождь разрешили из приложения
+      _oldRMode = false;
+      eventSimple("rain_resume");
     }
   } else {
     if (_rainNow) { _rainNow = false; eventSimple("rain_end"); }
@@ -294,6 +297,9 @@ void Device::checkWeather(uint32_t nowMs, bool& blocked, bool& nightBlock, bool&
         eventSimple("night_block");
         if (_isOpenFlag) { _isOpenFlag = false; startTankFill(nowMs); }
       }
+    } else if (_oldNMode) {   // ночь, но работу ночью разрешили из приложения
+      _oldNMode = false;
+      eventSimple("night_resume");
     }
   } else {
     if (_nightNow) { _nightNow = false; eventSimple("day_start"); }
@@ -407,8 +413,8 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
     save();
     return true;
   }
-  if (c == "run_on_rain") _cfg.runOnRain = flag;
-  else if (c == "run_on_night") _cfg.runOnNight = flag;
+  if (c == "run_on_rain") { _cfg.runOnRain = flag; _recheck = true; }
+  else if (c == "run_on_night") { _cfg.runOnNight = flag; _recheck = true; }
   else if (c == "delta_hum") _cfg.deltaHum = (int)number;
   else if (c == "delta_calib") _cfg.deltaCalib = (int)number;
   else if (c == "boost_pump_valves") { _cfg.boostPumpValves = (uint8_t)number; stopPumpIfNeed(); }
