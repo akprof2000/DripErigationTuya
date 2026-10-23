@@ -393,7 +393,7 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
   int us = c.lastIndexOf('_');
   String base = us > 0 ? c.substring(0, us) : c;
   String num = us > 0 ? c.substring(us + 1) : "";
-  if (num.length() && (base == "mode" || base == "border")) {
+  if (num.length() && isDigit(num[0]) && (base == "mode" || base == "border")) {   // mode_all — не канал
     int ch = num.toInt();
     if (ch < 1 || ch > NUM_CHANNELS) { err = "bad channel"; return false; }
     if (base == "mode") _cfg.channels[ch - 1].mode = text;

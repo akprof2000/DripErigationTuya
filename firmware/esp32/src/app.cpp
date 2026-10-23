@@ -121,6 +121,7 @@ void App::loop() {
     LOG_D("adc:%s", line);
   }
 #endif
+  tickSerial();
   tickButton();
   tickLed(up);
 
@@ -261,4 +262,38 @@ void App::tickLed(bool wifiUp) {
   else if (wifiUp) _ledOn = !_ledOn;
   else _ledOn = (_upSec % 2) == 0;
   _hw.led(_ledOn);
+}
+
+// 🔧 сервисные команды из COM-порта (наладка платы): "relays" — щёлкнуть каждым реле по очереди
+void App::tickSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c != 10 && c != 13) {   // LF / CR - end of line
+      if (_cmd.length() < 32) _cmd += c;
+      continue;
+    }
+    String cmd = _cmd;
+    _cmd = "";
+    cmd.trim();
+    if (cmd == "relays") relayTest();
+    else if (cmd.length()) LOG_W("команда «%s» не знакома (есть: relays)", cmd.c_str());
+  }
+}
+
+void App::relayTest() {
+  auto hold = [](uint32_t ms) {
+    for (uint32_t t = 0; t < ms; t += 100) { esp_task_wdt_reset(); delay(100); }
+  };
+  _hw.allOff();
+  for (uint8_t i = 0; i < Hardware::N; i++) {
+    LOG_I("тест: клапан %u ВКЛ", i + 1);
+    _hw.setValve(i, true);
+    hold(1500);
+    _hw.setValve(i, false);
+    hold(500);
+  }
+  LOG_I("тест: насос ВКЛ");   _hw.setPump(true);  hold(1500); _hw.setPump(false);  hold(500);
+  LOG_I("тест: налив ВКЛ");   _hw.setFill(true);  hold(1500); _hw.setFill(false);  hold(500);
+  LOG_I("тест: дренаж ВКЛ");  _hw.setDrain(true); hold(1500); _hw.setDrain(false);
+  LOG_I("тест реле закончен");
 }
