@@ -59,7 +59,7 @@ def _event(instance, events):
             "parameters": {"instance": instance, "events": [{"value": e} for e in events]}}
 
 
-def devices(status, room="Огород"):
+def devices(status, room="Улица"):
     """Описание устройств для /user/devices."""
     out = []
     for ch in range(1, CHANNELS + 1):
