@@ -344,7 +344,34 @@ void Device::flowSilenceMinute(uint32_t unix) {
   }
 }
 
+constexpr int DRY_ALERT_PCT = 20, DRY_REARM_PCT = 25;
+constexpr uint32_t ALERT_HOLD_MS = 10000, ALERT_QUIET_AFTER_BOOT_MS = 5UL * 60 * 1000;
+
+// Пересохшие грядки (кроме режима «Выкл») — одна фраза на все сразу; повтор по грядке после намокания
+void Device::dryAlerts(uint32_t nowMs) {
+  String list;
+  int n = 0;
+  for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
+    int p = percent(i);
+    if (p > DRY_REARM_PCT) _dryAlerted[i] = false;
+    if (_dryAlerted[i] || p >= DRY_ALERT_PCT || _cfg.channels[i].mode == Mode::Off) continue;
+    _dryAlerted[i] = true;
+    if (nowMs < ALERT_QUIET_AFTER_BOOT_MS) continue;   // сухая уже до перезагрузки — не повторять
+    const String& nm = _cfg.channels[i].name;
+    String name = nm.length() ? nm : String("Растение ") + (i + 1);
+    if (n++) list += ", ";
+    list += name + " (" + p + " %)";
+    if (n == 1) _alert = "Грядка " + name + " пересохла: " + p + " %";
+  }
+  if (n > 1) _alert = "Пересохли грядки: " + list;
+  if (n) {
+    _alertSinceMs = nowMs;
+    LOG_I("уведомление: %s", _alert.c_str());
+  }
+}
+
 void Device::tick(uint32_t nowMs, uint32_t unix) {
+  if (_alert != "-" && nowMs - _alertSinceMs >= ALERT_HOLD_MS) _alert = "-";
   if (_faults) {
     if (!_faultShutdownDone) {
       _faultShutdownDone = true;
@@ -389,6 +416,7 @@ void Device::tick(uint32_t nowMs, uint32_t unix) {
     _recheck = false;
     readAll();
     autoCalibrateBounds();
+    dryAlerts(nowMs);
     bool blocked, nightBlock, rainBlock;
     checkWeather(nowMs, blocked, nightBlock, rainBlock);
     controlValves(blocked, nightBlock, rainBlock, nowMs, unix);
@@ -612,6 +640,7 @@ void Device::snapshot(JsonObject out) {
   String wz;
   serializeJson(_wizard, wz);
   dp::putString(out, "wizard_state", wz);
+  dp::putString(out, "alert", _alert);
   uint8_t raw[NUM_CHANNELS * 6];
   for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
     uint16_t v[3] = {(uint16_t)_curr[i], (uint16_t)_low[i], (uint16_t)_high[i]};

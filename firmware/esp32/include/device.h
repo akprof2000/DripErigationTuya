@@ -88,6 +88,11 @@ class Device {
   bool _drainActive = false, _fillActive = false;
   uint32_t _drainStartMs = 0, _fillStartMs = 0;
   bool _recheck = false;   // пересчитать клапаны на ближайшем тике, не ждать минуты
+  // 🔔 «грядка пересохла»: текст в DP alert на ALERT_HOLD_MS, затем «-»; повтор после намокания
+  String _alert = "-";
+  uint32_t _alertSinceMs = 0;
+  bool _dryAlerted[NUM_CHANNELS] = {};
+  void dryAlerts(uint32_t nowMs);
   bool _rainNow = false, _nightNow = false, _oldRMode = false, _oldNMode = false;
   // flow
   float _flowSession = 0, _flowRate = 0;

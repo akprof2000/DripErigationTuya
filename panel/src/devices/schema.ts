@@ -1414,5 +1414,23 @@ export const defaultSchema = [
       "maxlen": 32
     },
     "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "alert",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": false,
+    "extContent": "",
+    "iconname": "",
+    "id": 179,
+    "mode": "ro",
+    "name": "alert",
+    "property": {
+      "type": "string",
+      "maxlen": 255
+    },
+    "type": "obj"
   }
 ] as const;

@@ -81,5 +81,6 @@ static const DpInfo DP_TABLE[] = {
   {176, "name_6", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 6},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 6
   {177, "name_7", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 7},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 7
   {178, "name_8", DpType::String, DpMode::RW, 0, 0, 0, nullptr, 0, nullptr, 0, 32, 8},  // Название грядки — для текста push-уведомлений (панель пишет при переименовании) 8
+  {179, "alert", DpType::String, DpMode::RO, 0, 0, 0, nullptr, 0, nullptr, 0, 255, 0},  // Текст push-уведомления «пересохла грядка» (прошивка пишет фразу на 10 с, иначе «-»); правило Tuya: alert ≠ «-»
 };
-static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 67
+static const size_t DP_COUNT = sizeof(DP_TABLE) / sizeof(DP_TABLE[0]);  // 68
