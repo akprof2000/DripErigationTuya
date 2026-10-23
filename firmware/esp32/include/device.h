@@ -87,6 +87,7 @@ class Device {
   uint32_t _pumpStartMs = 0;
   bool _drainActive = false, _fillActive = false;
   uint32_t _drainStartMs = 0, _fillStartMs = 0;
+  bool _recheck = false;   // пересчитать клапаны на ближайшем тике, не ждать минуты
   bool _rainNow = false, _nightNow = false, _oldRMode = false, _oldNMode = false;
   // flow
   float _flowSession = 0, _flowRate = 0;

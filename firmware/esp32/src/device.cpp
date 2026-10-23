@@ -374,8 +374,9 @@ void Device::tick(uint32_t nowMs, uint32_t unix) {
 
   // 📅 раз в минуту (по unix, если известно, иначе по millis)
   int32_t minute = unix ? (int32_t)(unix / 60) : (int32_t)(nowMs / 60000);
-  if (minute != _lastMinute) {
+  if (minute != _lastMinute || _recheck) {   // _recheck: режим/порог изменили из приложения
     _lastMinute = minute;
+    _recheck = false;
     readAll();
     autoCalibrateBounds();
     bool blocked, nightBlock, rainBlock;
@@ -398,6 +399,7 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
     if (ch < 1 || ch > NUM_CHANNELS) { err = "bad channel"; return false; }
     if (base == "mode") _cfg.channels[ch - 1].mode = text;
     else _cfg.channels[ch - 1].border = (uint8_t)number;
+    _recheck = true;
     save();
     return true;
   }
@@ -409,7 +411,7 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
   else if (c == "clog_threshold") _cfg.clogThreshold = (uint8_t)number;
   else if (c == "flow_monitor") _cfg.flowMonitor = flag;
   else if (c == "autocal_no_delay") _cfg.autocalNoDelay = flag;
-  else if (c == "mode_all") { for (auto& ch : _cfg.channels) ch.mode = text; }
+  else if (c == "mode_all") { for (auto& ch : _cfg.channels) ch.mode = text; _recheck = true; }
   else if (c == "command") { command(text, nowMs, unix); return true; }
   else if (c == "wizard") { wizard(text); return true; }
   else { err = "DP не обрабатывается"; return false; }
