@@ -16,3 +16,6 @@ firmware/dist/
 # прошивка C++ (PlatformIO): сборка и секреты для файловой системы
 firmware/esp32/.pio/
 firmware/esp32/data/
+
+# локальные настройки редактора
+.vscode/
