@@ -83,7 +83,7 @@ def handle(req, status_fn):
     text = r.get("original_utterance") or r.get("command") or ""
     new = req.get("session", {}).get("new", False)
     one_shot = new and bool(text.strip())
-    bye = bool(re.search(r"(хватит|стоп|выход|спасибо|пока)", _norm(text)))
+    bye = bool({"хватит", "стоп", "выход", "спасибо", "пока"} & set(_norm(text).split()))
     if bye:
         out = "Хорошо, до связи!"
     elif new and not text.strip():
