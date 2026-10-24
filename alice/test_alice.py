@@ -98,7 +98,7 @@ class DialogTest(unittest.TestCase):
         self.assertIn("выключена", self.ask("влажность грядки восемь"))
         all_h = self.ask("какая влажность сейчас")
         self.assertIn("Растение 1 41 %", all_h)
-        self.assertNotIn("Растение 8", all_h)   # выключенная не в списке
+        self.assertIn("Растение 8 5 % (выключена)", all_h)
         self.assertIn("8 — Растение 8", self.ask("что где растёт"))
 
     def test_protocol(self):

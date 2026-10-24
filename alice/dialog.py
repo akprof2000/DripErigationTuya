@@ -69,11 +69,11 @@ def answer(text, status):
             mode = status.get("mode_%d" % ch, "auto")
             tail = "" if mode in ("auto", "greenhouse") else ", %s" % MODE_TEXT.get(mode, mode)
             return "%s, грядка %d: влажность %d %%%s." % (mapping.bed_name(status, ch), ch, _hum(status, ch), tail)
-        active = [c for c in range(1, mapping.CHANNELS + 1) if status.get("mode_%d" % c, "auto") != "off"]
-        if not active:
-            return "Все грядки выключены."
-        return "Влажность сейчас: " + "; ".join("%s %d %%" % (mapping.bed_name(status, c), _hum(status, c))
-                                                for c in active) + "."
+        parts = []
+        for c in range(1, mapping.CHANNELS + 1):
+            off = status.get("mode_%d" % c, "auto") == "off"
+            parts.append("%s %d %%%s" % (mapping.bed_name(status, c), _hum(status, c), " (выключена)" if off else ""))
+        return "Влажность сейчас: " + "; ".join(parts) + "."
     return "Не поняла вопрос. " + HELP
 
 
@@ -81,7 +81,12 @@ def handle(req, status_fn):
     """Запрос Яндекс Диалогов → ответ. status_fn() читает DP контроллера (только когда нужен)."""
     r = req.get("request", {})
     text = r.get("original_utterance") or r.get("command") or ""
-    if req.get("session", {}).get("new") and not text.strip():
+    new = req.get("session", {}).get("new", False)
+    one_shot = new and bool(text.strip())
+    bye = bool(re.search(r"(хватит|стоп|выход|спасибо|пока)", _norm(text)))
+    if bye:
+        out = "Хорошо, до связи!"
+    elif new and not text.strip():
         out = "Привет! Я знаю всё о грядках на даче. " + HELP
     else:
         try:
@@ -89,4 +94,5 @@ def handle(req, status_fn):
         except Exception:   # облако Tuya или контроллер недоступны
             out = "Не получилось связаться с контроллером полива. Попробуйте позже."
     return {"version": req.get("version", "1.0"),
-            "response": {"text": out, "end_session": not req.get("session", {}).get("new", False)}}
+            # «спроси у …, вопрос» — один ответ и выход; в запущенном навыке — разговор до «хватит»
+            "response": {"text": out, "end_session": one_shot or bye}}
