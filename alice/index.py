@@ -21,6 +21,7 @@ import time
 import urllib.parse
 import urllib.request
 
+import dialog
 import mapping
 from tuya_api import Tuya, TuyaError
 
@@ -205,6 +206,9 @@ def handler(event, context):
     path = event.get("path") or event.get("url") or "/"
     path = path.split("?")[0].rstrip("/")
     method = event.get("httpMethod", "GET")
+    if path.endswith("/dialog"):   # разговорный навык «Полив»
+        req = json.loads(_body(event) or "{}")
+        return resp(200, dialog.handle(req, lambda: tuya().status(env("TUYA_DEVICE_ID"))))
     if path.endswith("/oauth/authorize"):
         return oauth_authorize(event)
     if path.endswith("/oauth/token"):

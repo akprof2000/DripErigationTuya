@@ -11,6 +11,7 @@ os.environ.update({
     "ALICE_CLIENT_SECRET": "cs", "YANDEX_SKILL_ID": "skill", "YANDEX_OAUTH_TOKEN": "tok",
 })
 
+import dialog     # noqa: E402
 import index      # noqa: E402
 import mapping    # noqa: E402
 from tuya_api import Tuya   # noqa: E402
@@ -77,6 +78,35 @@ class MappingTest(unittest.TestCase):
                          {"command": "drain"})
         with self.assertRaises(ValueError):
             mapping.commands("status", {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}})
+
+
+class DialogTest(unittest.TestCase):
+    def ask(self, text):
+        return dialog.answer(text, STATUS)
+
+    def test_find_bed(self):
+        f = lambda t: dialog.find_bed(t, STATUS)
+        self.assertEqual(f("какая влажность грядки 2"), 2)
+        self.assertEqual(f("что растёт на пятой грядке"), 5)
+        self.assertEqual(f("что растет на первой"), 1)
+        self.assertEqual(f("какая влажность кабачков"), 3)
+        self.assertIsNone(f("какая влажность сейчас"))
+
+    def test_answers(self):
+        self.assertEqual(self.ask("что растёт на грядке 3"), "На грядке 3 — Кабачки.")
+        self.assertIn("влажность 43 %", self.ask("какая влажность кабачков"))
+        self.assertIn("выключена", self.ask("влажность грядки восемь"))
+        all_h = self.ask("какая влажность сейчас")
+        self.assertIn("Растение 1 41 %", all_h)
+        self.assertNotIn("Растение 8", all_h)   # выключенная не в списке
+        self.assertIn("8 — Растение 8", self.ask("что где растёт"))
+
+    def test_protocol(self):
+        index._tuya = FakeTuya()
+        req ={"version": "1.0", "session": {"new": False}, "request": {"original_utterance": "что растёт на грядке 3"}}
+        r, b = call("/dialog", body=req, token=False)
+        self.assertEqual(r["statusCode"], 200)
+        self.assertEqual(b["response"]["text"], "На грядке 3 — Кабачки.")
 
 
 class ProtocolTest(unittest.TestCase):
