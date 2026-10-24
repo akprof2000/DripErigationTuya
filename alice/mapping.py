@@ -3,7 +3,7 @@
 Устройства:
   bed_1 … bed_8   кран: вкл = «Всегда вкл», выкл = «Выкл»; влажность
   bed_N_auto      выключатель «<имя> автополив»: вкл = Авто, выкл = Выкл
-  bed_N_greenhouse  выключатель «<имя> полив в парнике»: вкл = Парник (поливает и в дождь), выкл = Выкл
+  bed_N_greenhouse  выключатель «<имя> в парнике»: вкл = Парник (поливает и в дождь), выкл = Выкл
   all             выключатель «Полив»: то же для всех грядок сразу (DP mode_all)
   all_auto, all_greenhouse  «Автополив» / «Полив в парнике» для всех грядок
   drain           выключатель «Дренаж»: включить = разовый пролив (команда drain), выключится сам
@@ -22,7 +22,7 @@ FLOAT = "devices.properties.float"
 EVENT = "devices.properties.event"
 
 # выключатели режимов: суффикс id → (режим Tuya, хвост имени)
-MODE_SWITCHES = {"auto": ("auto", "автополив"), "greenhouse": ("greenhouse", "полив в парнике")}
+MODE_SWITCHES = {"auto": ("auto", "автополив"), "greenhouse": ("greenhouse", "в парнике")}
 
 
 def _split(device_id):
@@ -31,6 +31,16 @@ def _split(device_id):
         if device_id.endswith("_" + suffix):
             return device_id[: -len(suffix) - 1], suffix
     return device_id, None
+
+
+NAME_MAX = 25   # предел длины имени устройства в «Доме с Алисой»
+ALL_NAMES = {"auto": "Автополив", "greenhouse": "Полив в парнике"}
+
+
+def _switch_name(bed, tail):
+    """«Кабачки автополив»; длинное имя грядки обрезается, чтобы влезть в 25 символов."""
+    room = NAME_MAX - len(tail) - 1
+    return "%s %s" % (bed[:room].rstrip(), tail)
 
 
 def _mode_code(base):
@@ -81,12 +91,12 @@ def devices(status, room="Улица"):
             "properties": [_float("humidity", "unit.percent")],
         })
         for suffix, (_, tail) in MODE_SWITCHES.items():
-            out.append({"id": "bed_%d_%s" % (ch, suffix), "name": "%s %s" % (bed_name(status, ch), tail),
+            out.append({"id": "bed_%d_%s" % (ch, suffix), "name": _switch_name(bed_name(status, ch), tail),
                         "room": room, "type": "devices.types.switch", "capabilities": [_on_off()]})
     out.append({"id": "all", "name": "Полив", "room": room, "type": "devices.types.switch",
                 "capabilities": [_on_off()]})
     for suffix, (_, tail) in MODE_SWITCHES.items():
-        out.append({"id": "all_" + suffix, "name": tail.capitalize(), "room": room,
+        out.append({"id": "all_" + suffix, "name": ALL_NAMES[suffix], "room": room,
                     "type": "devices.types.switch", "capabilities": [_on_off()]})
     out.append({"id": "drain", "name": "Дренаж", "room": room, "type": "devices.types.switch",
                 "capabilities": [_on_off()]})

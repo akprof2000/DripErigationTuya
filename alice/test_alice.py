@@ -49,10 +49,12 @@ class MappingTest(unittest.TestCase):
         self.assertEqual([d["id"] for d in devs][:3], ["bed_1", "bed_1_auto", "bed_1_greenhouse"])
         by_id = {d["id"]: d["name"] for d in devs}
         self.assertEqual(by_id["bed_3"], "Кабачки")
-        self.assertEqual(by_id["bed_3_greenhouse"], "Кабачки полив в парнике")
+        self.assertEqual(by_id["bed_3_greenhouse"], "Кабачки в парнике")
         self.assertEqual(by_id["bed_1_auto"], "Растение 1 автополив")
         self.assertEqual(by_id["all_auto"], "Автополив")
         self.assertEqual(len(devs), 29)
+        self.assertTrue(all(len(d["name"]) <= mapping.NAME_MAX for d in devs))
+        self.assertEqual(by_id["all_greenhouse"], "Полив в парнике")
 
     def test_mode_switches(self):
         st = lambda d: mapping.state(d, STATUS)["capabilities"][0]["state"]["value"]
