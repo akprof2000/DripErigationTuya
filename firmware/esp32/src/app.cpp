@@ -284,7 +284,14 @@ void App::tickSerial() {
             _hw.pumpOn(), _hw.fillOn(), _hw.drainOn(), digitalRead(pins::PUMP), digitalRead(pins::FILL),
             digitalRead(pins::DRAIN));
     }
-    else if (cmd.length()) LOG_W("команда «%s» не знакома (есть: relays, state)", cmd.c_str());
+    else if (cmd == "flow") {
+      uint32_t ago = _hw.msSinceLastPulse();
+      LOG_I("расходомер: импульсов %lu (%.3f л), %.2f л/мин, последний %s назад, GPIO%d = %d",
+            (unsigned long)_hw.totalPulses(), _hw.totalPulses() / PULSES_PER_LITER, _hw.flowLpm(),
+            ago == 0xFFFFFFFF ? "никогда" : (String(ago / 1000.0f, 1) + " с").c_str(), pins::FLOW,
+            digitalRead(pins::FLOW));
+    }
+    else if (cmd.length()) LOG_W("команда «%s» не знакома (есть: relays, state, flow)", cmd.c_str());
   }
 }
 
