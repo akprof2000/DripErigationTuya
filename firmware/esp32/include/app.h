@@ -15,7 +15,7 @@
 
 class App {
  public:
-  static constexpr uint32_t TICK_MS = 1000, SYS_INFO_EVERY_S = 600, BUTTON_PORTAL_MS = 5000,
+  static constexpr uint32_t TICK_MS = 1000, SYS_INFO_EVERY_S = 60, BUTTON_PORTAL_MS = 5000,
                             STATE_OK_AFTER_S = 60, WDT_TIMEOUT_S = 120;
   void setup();
   void loop();
