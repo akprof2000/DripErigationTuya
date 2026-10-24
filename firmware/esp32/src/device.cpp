@@ -331,13 +331,23 @@ void Device::controlValves(bool blocked, bool nightBlock, bool rainBlock, uint32
   }
 }
 
+constexpr uint32_t NO_FLOW_ALERT_GAP_MS = 6UL * 3600 * 1000;
+
 void Device::flowSilenceMinute(uint32_t unix) {
-  bool expect = _pump && countOpen() > 0 && !_drainActive;
+  bool expect = countOpen() > 0 && !_drainActive;   // клапан открыт — вода должна идти (с насосом или без)
   bool silent = expect && (_lastPulseAt == 0 || unix - _lastPulseAt >= 60);
   _silentMin = silent ? (_silentMin < 255 ? _silentMin + 1 : 255) : 0;
   if (_silentMin >= FLOW_SILENCE_MIN && !_flowSilent) {
     _flowSilent = true;
     eventSimple("flow_silent");
+    // не чаще раза в 6 ч: при пустом баке клапаны открываются каждый цикл
+    uint32_t now = millis();
+    if (_noFlowAlertMs == 0 || now - _noFlowAlertMs >= NO_FLOW_ALERT_GAP_MS) {
+      _noFlowAlertMs = now ? now : 1;
+      _alert = String("Нет потока воды: клапаны открыты ") + FLOW_SILENCE_MIN + " мин, а вода не идёт";
+      _alertSinceMs = now;
+      LOG_I("уведомление: %s", _alert.c_str());
+    }
   } else if (_flowSilent && !silent && _lastPulseAt != 0) {
     _flowSilent = false;
     eventSimple("flow_ok");

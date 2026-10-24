@@ -91,6 +91,7 @@ class Device {
   // 🔔 «грядка пересохла»: текст в DP alert на ALERT_HOLD_MS, затем «-»; повтор после намокания
   String _alert = "-";
   uint32_t _alertSinceMs = 0;
+  uint32_t _noFlowAlertMs = 0;   // когда последний раз слали «нет потока»
   bool _dryAlerted[NUM_CHANNELS] = {};
   void dryAlerts(uint32_t nowMs);
   bool _rainNow = false, _nightNow = false, _oldRMode = false, _oldNMode = false;
