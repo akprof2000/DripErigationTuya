@@ -59,12 +59,13 @@ def answer(text, status):
     if not t.strip() or "помощ" in t or "умеешь" in t:
         return "Я рассказываю о грядках полива. " + HELP
     ch = find_bed(text, status)
-    if "раст" in t or "посаж" in t or "что на" in t:
+    humid = "влаж" in t or "сух" in t or "мокр" in t
+    if not humid and ("раст" in t or "посаж" in t or "что на" in t):
         if ch:
             return "На грядке %d — %s." % (ch, mapping.bed_name(status, ch))
         return "Грядки: " + "; ".join("%d — %s" % (c, mapping.bed_name(status, c))
                                      for c in range(1, mapping.CHANNELS + 1)) + "."
-    if "влаж" in t or "сух" in t or "мокр" in t or "полив" in t or ch:
+    if humid or "полив" in t or ch:
         if ch:
             mode = status.get("mode_%d" % ch, "auto")
             tail = "" if mode in ("auto", "greenhouse") else ", %s" % MODE_TEXT.get(mode, mode)

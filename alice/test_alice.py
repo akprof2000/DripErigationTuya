@@ -97,6 +97,7 @@ class DialogTest(unittest.TestCase):
     def test_answers(self):
         self.assertEqual(self.ask("что растёт на грядке 3"), "На грядке 3 — Кабачки.")
         self.assertIn("влажность 43 %", self.ask("какая влажность кабачков"))
+        self.assertIn("влажность 47 %", self.ask("какая влажность растения 7"))
         self.assertIn("выключена", self.ask("влажность грядки восемь"))
         all_h = self.ask("какая влажность сейчас")
         self.assertIn("Растение 1 41 %", all_h)
