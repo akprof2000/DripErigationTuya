@@ -45,10 +45,10 @@ def call(path, method="POST", body=None, token=True, query=None):
 class MappingTest(unittest.TestCase):
     def test_devices(self):
         devs = mapping.devices(STATUS)
-        self.assertEqual([d["id"] for d in devs][:3], ["bed_1", "bed_1_auto", "bed_1_eco"])
+        self.assertEqual([d["id"] for d in devs][:3], ["bed_1", "bed_1_auto", "bed_1_greenhouse"])
         by_id = {d["id"]: d["name"] for d in devs}
         self.assertEqual(by_id["bed_3"], "Кабачки")
-        self.assertEqual(by_id["bed_3_eco"], "Кабачки полив в парнике")
+        self.assertEqual(by_id["bed_3_greenhouse"], "Кабачки полив в парнике")
         self.assertEqual(by_id["bed_1_auto"], "Растение 1 автополив")
         self.assertEqual(by_id["all_auto"], "Автополив")
         self.assertEqual(len(devs), 29)
@@ -56,11 +56,11 @@ class MappingTest(unittest.TestCase):
     def test_mode_switches(self):
         st = lambda d: mapping.state(d, STATUS)["capabilities"][0]["state"]["value"]
         self.assertTrue(st("bed_1_auto"))
-        self.assertFalse(st("bed_1_eco"))
+        self.assertFalse(st("bed_1_greenhouse"))
         self.assertFalse(st("all_auto"))   # грядка 8 выключена
         on = {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}}
         off = {"type": mapping.ON_OFF, "state": {"instance": "on", "value": False}}
-        self.assertEqual(mapping.commands("bed_4_eco", on), {"mode_4": "greenhouse"})
+        self.assertEqual(mapping.commands("bed_4_greenhouse", on), {"mode_4": "greenhouse"})
         self.assertEqual(mapping.commands("bed_4_auto", off), {"mode_4": "off"})
         self.assertEqual(mapping.commands("all_auto", on), {"mode_all": "auto"})
 
@@ -73,12 +73,10 @@ class MappingTest(unittest.TestCase):
     def test_commands(self):
         self.assertEqual(mapping.commands("bed_2", {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}}),
                          {"mode_2": "on"})
-        self.assertEqual(mapping.commands("all", {"type": mapping.MODE, "state": {"instance": "program", "value": "eco"}}),
-                         {"mode_all": "greenhouse"})
         self.assertEqual(mapping.commands("drain", {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}}),
                          {"command": "drain"})
         with self.assertRaises(ValueError):
-            mapping.commands("bed_1", {"type": mapping.MODE, "state": {"instance": "program", "value": "turbo"}})
+            mapping.commands("status", {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}})
 
 
 class ProtocolTest(unittest.TestCase):

@@ -1,11 +1,11 @@
 """Устройства контроллера в «Доме с Алисой» и перевод состояний Tuya ⇄ Яндекс.
 
 Устройства:
-  bed_1 … bed_8   кран: вкл = «Всегда вкл», выкл = «Выкл», режим «авто»/«эко» = Авто/Парник; влажность
+  bed_1 … bed_8   кран: вкл = «Всегда вкл», выкл = «Выкл»; влажность
   bed_N_auto      выключатель «<имя> автополив»: вкл = Авто, выкл = Выкл
-  bed_N_eco       выключатель «<имя> полив в парнике»: вкл = Парник, выкл = Выкл
+  bed_N_greenhouse  выключатель «<имя> полив в парнике»: вкл = Парник (поливает и в дождь), выкл = Выкл
   all             выключатель «Полив»: то же для всех грядок сразу (DP mode_all)
-  all_auto, all_eco  «Автополив» / «Полив в парнике» для всех грядок
+  all_auto, all_greenhouse  «Автополив» / «Полив в парнике» для всех грядок
   drain           выключатель «Дренаж»: включить = разовый пролив (команда drain), выключится сам
   status          датчик «Контроллер полива»: события для сценариев и уведомлений
                     water_level low  — засор фильтра
@@ -18,23 +18,18 @@ CHANNELS = 8
 FAULT_BITS = ["rtc", "sd", "valves", "filter_clog"]   # порядок битов DP fault (spec/dp.json)
 
 ON_OFF = "devices.capabilities.on_off"
-MODE = "devices.capabilities.mode"
 FLOAT = "devices.properties.float"
 EVENT = "devices.properties.event"
 
-# режим грядки ⇄ режим Яндекса (instance program); «on»/«off» — через on_off
-YA_MODE = {"auto": "auto", "greenhouse": "eco"}
-TUYA_MODE = {v: k for k, v in YA_MODE.items()}
-
 # выключатели режимов: суффикс id → (режим Tuya, хвост имени)
-MODE_SWITCHES = {"auto": ("auto", "автополив"), "eco": ("greenhouse", "полив в парнике")}
+MODE_SWITCHES = {"auto": ("auto", "автополив"), "greenhouse": ("greenhouse", "полив в парнике")}
 
 
 def _split(device_id):
-    """bed_3_auto → ("bed_3", "auto"); all_eco → ("all", "eco"); прочие → (id, None)."""
-    base, _, suffix = device_id.rpartition("_")
-    if base and suffix in MODE_SWITCHES:
-        return base, suffix
+    """bed_3_auto → ("bed_3", "auto"); all_greenhouse → ("all", "greenhouse"); прочие → (id, None)."""
+    for suffix in MODE_SWITCHES:
+        if device_id.endswith("_" + suffix):
+            return device_id[: -len(suffix) - 1], suffix
     return device_id, None
 
 
@@ -56,11 +51,6 @@ def faults(status):
     except (TypeError, ValueError):
         return set()
     return {name for i, name in enumerate(FAULT_BITS) if v & (1 << i)}
-
-
-def _mode_cap(modes):
-    return {"type": MODE, "retrievable": True, "reportable": True,
-            "parameters": {"instance": "program", "modes": [{"value": m} for m in modes]}}
 
 
 def _on_off():
@@ -87,14 +77,14 @@ def devices(status, room="Улица"):
             "description": "Грядка %d" % ch,
             "room": room,
             "type": "devices.types.openable.valve",
-            "capabilities": [_on_off(), _mode_cap(["auto", "eco"])],
+            "capabilities": [_on_off()],
             "properties": [_float("humidity", "unit.percent")],
         })
         for suffix, (_, tail) in MODE_SWITCHES.items():
             out.append({"id": "bed_%d_%s" % (ch, suffix), "name": "%s %s" % (bed_name(status, ch), tail),
                         "room": room, "type": "devices.types.switch", "capabilities": [_on_off()]})
     out.append({"id": "all", "name": "Полив", "room": room, "type": "devices.types.switch",
-                "capabilities": [_on_off(), _mode_cap(["auto", "eco"])]})
+                "capabilities": [_on_off()]})
     for suffix, (_, tail) in MODE_SWITCHES.items():
         out.append({"id": "all_" + suffix, "name": tail.capitalize(), "room": room,
                     "type": "devices.types.switch", "capabilities": [_on_off()]})
@@ -130,14 +120,11 @@ def state(device_id, status):
     if device_id.startswith("bed_"):
         ch = int(device_id[4:])
         mode = _bed_mode(status, ch)
-        return {"capabilities": [_cap(ON_OFF, "on", mode != "off"),
-                                 _cap(MODE, "program", YA_MODE.get(mode, "auto"))],
+        return {"capabilities": [_cap(ON_OFF, "on", mode != "off")],
                 "properties": [_prop(FLOAT, "humidity", float(status.get("humidity_%d" % ch, 0)))]}
     if device_id == "all":
         modes = [_bed_mode(status, ch) for ch in range(1, CHANNELS + 1)]
-        common = modes[0] if len(set(modes)) == 1 else "auto"
-        return {"capabilities": [_cap(ON_OFF, "on", any(m != "off" for m in modes)),
-                                 _cap(MODE, "program", YA_MODE.get(common, "auto"))]}
+        return {"capabilities": [_cap(ON_OFF, "on", any(m != "off" for m in modes))]}
     if device_id == "drain":
         return {"capabilities": [_cap(ON_OFF, "on", bool(status.get("drain")))]}
     if device_id == "status":
@@ -162,10 +149,6 @@ def commands(device_id, capability):
         code = _mode_code(device_id)
         if ctype == ON_OFF:
             return {code: "on" if value else "off"}
-        if ctype == MODE:
-            if value not in TUYA_MODE:
-                raise ValueError("режим %s не поддерживается" % value)
-            return {code: TUYA_MODE[value]}
     if device_id == "drain" and ctype == ON_OFF:
         return {"command": "drain"} if value else {}   # выключается сам через 12 с
     raise ValueError("%s: действие %s не поддерживается" % (device_id, ctype))

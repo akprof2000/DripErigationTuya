@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Команды Алисы</title>
+<style>
+  :root { --bg:#fff; --fg:#1d1d1f; --muted:#6e6e73; --line:#e3e3e8; --head:#f4f4f7; --new:#e8f3ff; --newfg:#0a58ca; --sc:#eef8ee; --scfg:#1b7a2e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16161a; --fg:#ececf1; --muted:#9a9aa3; --line:#2c2c33; --head:#1f1f25; --new:#12263d; --newfg:#7db4ff; --sc:#13291a; --scfg:#7ad38f; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p { color:var(--muted); margin:0 0 16px; }
+  h2 { font-size:17px; margin:24px 0 8px; }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; min-width:560px; }
+  th, td { border-bottom:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; }
+  th { background:var(--head); font-weight:600; }
+  td:first-child { white-space:nowrap; }
+  .tag { display:inline-block; font-size:12px; padding:1px 7px; border-radius:10px; margin-left:6px; }
+  .new { background:var(--new); color:var(--newfg); }
+  .sc { background:var(--sc); color:var(--scfg); }
+  .note { margin-top:20px; font-size:14px; color:var(--muted); }
+</style>
+</head>
+<body>
+<h1>Команды Алисы для капельного полива</h1>
+<p>«Растение N» — имя грядки (N = 1…8). Если грядку переименовать, например в «Кабачки», в командах говорите новое имя. Все устройства — в доме «Дача», комната «Улица».</p>
+
+<h2>Каждая грядка (Растение 1…8)</h2>
+<div class="wrap"><table>
+<tr><th>Фраза</th><th>Что делает</th></tr>
+<tr><td>«Алиса, включи растение 3»</td><td>Режим «Всегда вкл» — клапан открыт постоянно</td></tr>
+<tr><td>«Алиса, выключи растение 3»</td><td>Режим «Выкл» — клапан закрыт</td></tr>
+<tr><td>«Алиса, включи автополив растения 3» <span class="tag new">после загрузки</span></td><td>Режим «Авто» — полив по влажности</td></tr>
+<tr><td>«Алиса, выключи автополив растения 3» <span class="tag new">после загрузки</span></td><td>Режим «Выкл»</td></tr>
+<tr><td>«Алиса, включи полив в парнике растения 3» <span class="tag new">после загрузки</span></td><td>Режим «Парник» — поливает по влажности, даже когда идёт дождь</td></tr>
+<tr><td>«Алиса, выключи полив в парнике растения 3» <span class="tag new">после загрузки</span></td><td>Режим «Выкл»</td></tr>
+<tr><td>«Алиса, какая влажность у растения 3?»</td><td>Текущая влажность почвы, %</td></tr>
+<tr><td>«Алиса, растение 3 включено?»</td><td>Открыт ли клапан (включён ли полив)</td></tr>
+<tr><td>«Алиса, включи растение 3 на 10 минут»</td><td>«Всегда вкл», через 10 минут Алиса выключит</td></tr>
+<tr><td>«Алиса, выключи растение 3 в 22:00»</td><td>Отложенное выключение</td></tr>
+</table></div>
+
+<h2>Все грядки сразу</h2>
+<div class="wrap"><table>
+<tr><th>Фраза</th><th>Что делает</th></tr>
+<tr><td>«Алиса, включи полив»</td><td>«Всегда вкл» на всех грядках</td></tr>
+<tr><td>«Алиса, выключи полив»</td><td>«Выкл» на всех грядках</td></tr>
+<tr><td>«Алиса, включи автополив» <span class="tag new">после загрузки</span></td><td>«Авто» на всех грядках</td></tr>
+<tr><td>«Алиса, выключи автополив» <span class="tag new">после загрузки</span></td><td>«Выкл» на всех грядках</td></tr>
+<tr><td>«Алиса, включи полив в парнике» <span class="tag new">после загрузки</span></td><td>«Парник» на всех грядках</td></tr>
+<tr><td>«Алиса, выключи полив в парнике» <span class="tag new">после загрузки</span></td><td>«Выкл» на всех грядках</td></tr>
+<tr><td>«Алиса, включи полив на 15 минут»</td><td>Всё вкл, через 15 минут выкл</td></tr>
+</table></div>
+
+<h2>Дренаж и контроллер</h2>
+<div class="wrap"><table>
+<tr><th>Фраза</th><th>Что делает</th></tr>
+<tr><td>«Алиса, включи дренаж»</td><td>Разовый пролив дренажа (12 с), выключится сам</td></tr>
+<tr><td>«Алиса, какая влажность у контроллера полива?»</td><td>Минимальная влажность среди включённых грядок</td></tr>
+<tr><td>«Алиса, что с контроллером полива?»</td><td>Засор фильтра, авария клапанов, дождь</td></tr>
+</table></div>
+
+<h2>Сценарии (уже созданы)</h2>
+<div class="wrap"><table>
+<tr><th>Фраза</th><th>Что делает</th></tr>
+<tr><td>«Алиса, растение 1 включено всегда» <span class="tag sc">сценарий</span></td><td>Растение 1 → «Всегда вкл»</td></tr>
+<tr><td>«Алиса, растение 1 выключено» <span class="tag sc">сценарий</span></td><td>Растение 1 → «Выкл»</td></tr>
+<tr><td>«Алиса, автополив растения 1» <span class="tag sc">сценарий</span></td><td>Растение 1 → «Авто»</td></tr>
+<tr><td>«Алиса, полив в парнике растения 1» <span class="tag sc">сценарий</span></td><td>Растение 1 → «Парник»</td></tr>
+<tr><td>То же для растения 2 <span class="tag sc">сценарий</span></td><td>4 фразы, как выше</td></tr>
+</table></div>
+
+<p class="note"><span class="tag new">после загрузки</span> — заработает после загрузки нового архива навыка в Яндекс Облако и обновления списка устройств в «Доме с Алисой».<br>
+Сценарии, которые сами срабатывают на события контроллера (пересохло, засор, дождь), и уведомления от Алисы пока не работают: для них нужен токен навыка и таймер.</p>
+</body>
+</html>
