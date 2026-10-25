@@ -111,7 +111,16 @@ class DialogTest(unittest.TestCase):
         self.assertEqual(a("что сейчас поливается"), "Сейчас поливаются: Растение 1, Кабачки.")
         self.assertEqual(a("поливаются ли кабачки"), "Кабачки: сейчас идёт полив.")
         self.assertEqual(a("идёт ли полив на грядке 2"), "Растение 2: сейчас полива нет.")
-        self.assertEqual(dialog.answer("где идёт полив", STATUS), "Сейчас полив нигде не идёт.")
+        q = "где идёт полив"
+        self.assertEqual(dialog.answer(q, dict(STATUS, rain=True)),
+                         "Сейчас полив нигде не идёт: идёт дождь, полив на улице выключен.")
+        self.assertEqual(dialog.answer(q, dict(STATUS, rain=False, night=True)),
+                         "Сейчас полив нигде не идёт: сейчас ночь, полив выключен до утра.")
+        self.assertEqual(dialog.answer(q, dict(STATUS, rain=False)), "Сейчас полив нигде не идёт: земля достаточно влажная.")
+        off = dict(STATUS, **{"mode_%d" % c: "off" for c in range(1, 9)})
+        self.assertEqual(dialog.answer(q, off), "Сейчас полив нигде не идёт: все грядки выключены.")
+        gh = dict(STATUS, rain=True, mode_2="greenhouse")
+        self.assertIn("только грядки в парнике", dialog.answer(q, gh))
         self.assertIn("влажность 42 %", a("какая влажность грядки 2"))
 
     def test_protocol(self):

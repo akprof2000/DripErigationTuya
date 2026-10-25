@@ -61,6 +61,19 @@ def _watering(status, ch):
     return status.get("valve_%d" % ch) in WATER_OPEN
 
 
+def _why_not(status):
+    """Почему клапаны закрыты: всё выключено, ночь или дождь (если полив в это время запрещён)."""
+    modes = [status.get("mode_%d" % c, "auto") for c in range(1, mapping.CHANNELS + 1)]
+    if all(m == "off" for m in modes):
+        return ": все грядки выключены"
+    if status.get("night") and not status.get("run_on_night"):
+        return ": сейчас ночь, полив выключен до утра"
+    if status.get("rain") and not status.get("run_on_rain"):
+        tail = ", поливаются только грядки в парнике" if "greenhouse" in modes else ""
+        return ": идёт дождь, полив на улице выключен" + tail
+    return ": земля достаточно влажная"
+
+
 def _asks_watering(t):
     """«на каких грядках идёт полив», «что сейчас поливается», «где открыт кран»."""
     return ("ид" in t and "полив" in t) or "поливает" in t or "поливают" in t or "открыт" in t         or ("полив" in t and ("как" in t or "где" in t) and "грядк" in t)
@@ -78,7 +91,7 @@ def answer(text, status):
             return "%s: %s." % (mapping.bed_name(status, ch), "сейчас идёт полив" if on else "сейчас полива нет")
         names = [mapping.bed_name(status, c) for c in range(1, mapping.CHANNELS + 1) if _watering(status, c)]
         if not names:
-            return "Сейчас полив нигде не идёт."
+            return "Сейчас полив нигде не идёт" + _why_not(status) + "."
         return "Сейчас поливаются: " + ", ".join(names) + "."
     if not humid and ("раст" in t or "посаж" in t or "что на" in t):
         if ch:
