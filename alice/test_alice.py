@@ -112,17 +112,17 @@ class DialogTest(unittest.TestCase):
         self.assertEqual(a("поливаются ли кабачки"), "Кабачки: сейчас идёт полив.")
         self.assertEqual(a("идёт ли полив на грядке 2"), "Растение 2: сейчас полива нет.")
         q = "где идёт полив"
-        self.assertEqual(dialog.answer(q, dict(STATUS, rain=True)),
-                         "Сейчас полив нигде не идёт: идёт дождь, полив на улице выключен.")
-        self.assertEqual(dialog.answer(q, dict(STATUS, rain=False, night=True)),
-                         "Сейчас полив нигде не идёт: сейчас ночь, полив выключен до утра.")
-        self.assertEqual(dialog.answer(q, dict(STATUS, rain=False)), "Сейчас полив нигде не идёт: земля достаточно влажная.")
-        off = dict(STATUS, **{"mode_%d" % c: "off" for c in range(1, 9)})
-        self.assertEqual(dialog.answer(q, dict(off, rain=False)), "Сейчас полив нигде не идёт: все грядки выключены.")
-        self.assertEqual(dialog.answer(q, dict(off, rain=False, night=True)),
-                         "Сейчас полив нигде не идёт: сейчас ночь, полив выключен до утра; все грядки выключены.")
-        gh = dict(STATUS, rain=True, mode_2="greenhouse")
-        self.assertIn("только грядки в парнике", dialog.answer(q, gh))
+        w = lambda **kw: dialog.answer(q, dict(STATUS, **kw))
+        off = {"mode_%d" % c: "off" for c in range(1, 9)}
+        self.assertEqual(w(rain=False), "Сейчас полив не идёт: земля достаточно влажная.")
+        self.assertEqual(w(rain=True), "Полив на паузе: сейчас идёт дождь.")
+        self.assertEqual(w(rain=True, night=True), "Полив на паузе: сейчас ночь и идёт дождь.")
+        self.assertEqual(w(rain=True, mode_2="greenhouse"),
+                         "Полив на паузе: сейчас идёт дождь. Грядки в парнике поливаются как обычно.")
+        self.assertEqual(w(rain=True, run_on_rain=True), "Сейчас полив не идёт: земля достаточно влажная.")
+        self.assertEqual(w(rain=False, **off), "Полив не идёт: все грядки выключены.")
+        self.assertEqual(w(rain=True, night=True, **off),
+                         "Полив не идёт: все грядки выключены. Сейчас к тому же ночь и идёт дождь.")
         self.assertIn("влажность 42 %", a("какая влажность грядки 2"))
 
     def test_protocol(self):

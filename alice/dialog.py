@@ -61,18 +61,27 @@ def _watering(status, ch):
     return status.get("valve_%d" % ch) in WATER_OPEN
 
 
-def _why_not(status):
-    """Почему клапаны закрыты: ночь, дождь (если полив в это время запрещён), всё выключено — все причины сразу."""
+def _join(items):
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " и " + items[-1]
+
+
+def _no_watering(status):
+    """Ответ, когда ни один клапан не открыт: главная причина, затем что мешает (ночь, дождь)."""
     modes = [status.get("mode_%d" % c, "auto") for c in range(1, mapping.CHANNELS + 1)]
-    why = []
+    pause = []
     if status.get("night") and not status.get("run_on_night"):
-        why.append("сейчас ночь, полив выключен до утра")
+        pause.append("ночь")
     if status.get("rain") and not status.get("run_on_rain"):
-        why.append("идёт дождь, полив на улице выключен" +
-                   (", поливаются только грядки в парнике" if "greenhouse" in modes else ""))
+        pause.append("идёт дождь")
     if all(m == "off" for m in modes):
-        why.append("все грядки выключены")
-    return ": " + "; ".join(why) if why else ": земля достаточно влажная"
+        tail = " Сейчас к тому же %s." % _join(pause) if pause else ""
+        return "Полив не идёт: все грядки выключены." + tail
+    if pause:
+        text = "Полив на паузе: сейчас %s." % _join(pause)
+        if "идёт дождь" in pause and "ночь" not in pause and "greenhouse" in modes:
+            text += " Грядки в парнике поливаются как обычно."
+        return text
+    return "Сейчас полив не идёт: земля достаточно влажная."
 
 
 def _asks_watering(t):
@@ -92,7 +101,7 @@ def answer(text, status):
             return "%s: %s." % (mapping.bed_name(status, ch), "сейчас идёт полив" if on else "сейчас полива нет")
         names = [mapping.bed_name(status, c) for c in range(1, mapping.CHANNELS + 1) if _watering(status, c)]
         if not names:
-            return "Сейчас полив нигде не идёт" + _why_not(status) + "."
+            return _no_watering(status)
         return "Сейчас поливаются: " + ", ".join(names) + "."
     if not humid and ("раст" in t or "посаж" in t or "что на" in t):
         if ch:
