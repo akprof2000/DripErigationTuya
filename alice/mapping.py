@@ -20,6 +20,7 @@ FAULT_BITS = ["rtc", "sd", "valves", "filter_clog"]   # порядок бито�
 ON_OFF = "devices.capabilities.on_off"
 FLOAT = "devices.properties.float"
 EVENT = "devices.properties.event"
+VALVE = "devices.types.openable.valve"   # иконка крана у всего, что пускает воду
 
 # выключатели режимов: суффикс id → (режим Tuya, хвост имени)
 MODE_SWITCHES = {"auto": ("auto", "автополив"), "greenhouse": ("greenhouse", "в парнике")}
@@ -86,19 +87,19 @@ def devices(status, room="Улица"):
             "name": bed_name(status, ch),
             "description": "Грядка %d" % ch,
             "room": room,
-            "type": "devices.types.openable.valve",
+            "type": VALVE,
             "capabilities": [_on_off()],
             "properties": [_float("humidity", "unit.percent")],
         })
         for suffix, (_, tail) in MODE_SWITCHES.items():
             out.append({"id": "bed_%d_%s" % (ch, suffix), "name": _switch_name(bed_name(status, ch), tail),
-                        "room": room, "type": "devices.types.switch", "capabilities": [_on_off()]})
-    out.append({"id": "all", "name": "Полив", "room": room, "type": "devices.types.switch",
+                        "room": room, "type": VALVE, "capabilities": [_on_off()]})
+    out.append({"id": "all", "name": "Полив", "room": room, "type": VALVE,
                 "capabilities": [_on_off()]})
     for suffix, (_, tail) in MODE_SWITCHES.items():
         out.append({"id": "all_" + suffix, "name": ALL_NAMES[suffix], "room": room,
-                    "type": "devices.types.switch", "capabilities": [_on_off()]})
-    out.append({"id": "drain", "name": "Дренаж", "room": room, "type": "devices.types.switch",
+                    "type": VALVE, "capabilities": [_on_off()]})
+    out.append({"id": "drain", "name": "Дренаж", "room": room, "type": VALVE,
                 "capabilities": [_on_off()]})
     out.append({"id": "status", "name": "Контроллер полива", "room": room, "type": "devices.types.sensor",
                 "properties": [_event("water_level", ["low", "normal"]),
