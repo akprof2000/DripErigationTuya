@@ -96,6 +96,7 @@ export function usePlants() {
 
   const plants: Plant[] = [];
   for (let i = 0; i < total; i++) plants.push(...(pages[i] ?? []));
+  plants.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
   const reload = useCallback(() => actions.plant_cmd?.set('list:0'), [actions]);
   const add = useCallback(
