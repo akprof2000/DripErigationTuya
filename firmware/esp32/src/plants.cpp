@@ -12,12 +12,25 @@ static const struct { const char* name; uint8_t border; } DEFAULTS[] = {
     {"Чеснок", 50},   {"Горох", 60},    {"Фасоль", 60},   {"Тыква", 60},
     {"Арбуз", 50},    {"Дыня", 50},     {"Малина", 60},   {"Смородина", 60},
     {"Цветы", 55},
+    // DEFAULTS_VER 2
+    {"Патиссоны", 65}, {"Кукуруза", 60}, {"Базилик", 65}, {"Шпинат", 70}, {"Сельдерей", 70},
 };
+// 🔢 номер стандартной таблицы: старый файл на SD дополняется новыми растениями,
+// удалённые пользователем не возвращаются (добавляется только хвост после прошлой версии)
+static const uint8_t DEFAULTS_VER = 2;
+static const size_t DEFAULTS_BY_VER[] = {0, 25, 30};   // сколько строк DEFAULTS было в версии N
 
 void Plants::begin(fs::FS& fs) {
   _fs = &fs;
   String text = readFile(fs, PATH);
   if (text.length()) parse(text);
+  if (!_items.empty() && _ver < DEFAULTS_VER) {
+    size_t from = DEFAULTS_BY_VER[_ver < 1 ? 1 : _ver];
+    for (size_t i = from; i < sizeof(DEFAULTS) / sizeof(DEFAULTS[0]); i++)
+      if (border(DEFAULTS[i].name) < 0) _items.push_back({DEFAULTS[i].name, DEFAULTS[i].border});
+    _ver = DEFAULTS_VER;
+    if (save()) LOG_I("plants: справочник дополнен до версии %u", DEFAULTS_VER);
+  }
   if (_items.empty()) {
     loadDefaults();
     if (save()) LOG_I("plants: создан %s (%u растений)", PATH, (unsigned)_items.size());
@@ -30,11 +43,13 @@ void Plants::begin(fs::FS& fs) {
 
 void Plants::loadDefaults() {
   _items.clear();
+  _ver = DEFAULTS_VER;
   for (auto& d : DEFAULTS) _items.push_back({d.name, d.border});
 }
 
 void Plants::parse(const String& text) {
   _items.clear();
+  _ver = 1;   // файл без отметки — таблица первой версии
   int start = 0;
   while (start < (int)text.length()) {
     int end = text.indexOf('\n', start);
@@ -42,6 +57,7 @@ void Plants::parse(const String& text) {
     String line = text.substring(start, end);
     start = end + 1;
     line.trim();
+    if (line.startsWith("; defaults=")) { _ver = line.substring(11).toInt(); continue; }
     if (!line.length() || line[0] == ';' || line[0] == '#' || line[0] == '[') continue;
     int eq = line.indexOf('=');
     if (eq <= 0) continue;
@@ -54,7 +70,8 @@ void Plants::parse(const String& text) {
 bool Plants::save() {
   if (!_fs) return false;
   String out = "; Справочник растений: имя=порог влажности почвы, %\n"
-               "; ниже порога (минус delta_hum) грядка поливается\n[plants]\n";
+               "; ниже порога (минус delta_hum) грядка поливается\n"
+               "; defaults=" + String(_ver) + "\n[plants]\n";
   for (auto& it : _items) out += it.name + "=" + it.border + "\n";
   bool ok = writeFile(*_fs, PATH, out);
   if (!ok) LOG_E("plants: не записать %s", PATH);

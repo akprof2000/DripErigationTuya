@@ -70,7 +70,11 @@ export default function ChannelPage() {
     reload();
     setEditing(true);
   };
-  const known = plants.find(p => p.name.toLowerCase() === nameDraft.trim().toLowerCase());
+  const search = nameDraft.trim().toLowerCase();
+  const known = plants.find(p => p.name.toLowerCase() === search);
+  // комбобокс: поле имени заодно фильтр справочника; выбранное растение показывает весь список
+  const matches =
+    known || !search ? plants : plants.filter(p => p.name.toLowerCase().includes(search));
 
   return (
     <View className={page.page}>
@@ -210,24 +214,26 @@ export default function ChannelPage() {
       >
         <Field
           value={nameDraft}
-          placeholder={`${t('plant')} ${ch}`}
+          placeholder={t('plant_search')}
           maxlength={30}
           onChange={(e: any) => setNameDraft(String(e.detail))}
         />
         {plants.length > 0 && (
           <View className={styles.plantList}>
-            {plants.map(p => (
-              <Text
+            {matches.map(p => (
+              <View
                 key={p.name}
-                className={`${styles.segItem} ${known === p ? styles.segActive : ''}`}
+                className={`${styles.plantRow} ${known === p ? styles.segActive : ''}`}
                 onClick={() => {
                   setNameDraft(p.name);
                   setBorderDraft(p.border);
                 }}
               >
-                {p.name} {p.border}%
-              </Text>
+                <Text>{p.name}</Text>
+                <Text className={styles.muted}>{p.border}%</Text>
+              </View>
             ))}
+            {matches.length === 0 && <Text className={styles.muted}>{t('plant_none')}</Text>}
           </View>
         )}
         <View className={styles.row}>

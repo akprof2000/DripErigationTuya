@@ -3,7 +3,7 @@
 // Файл /plants.ini на SD (или во флеше, если карты нет), строки «Томаты=60».
 // При первом запуске создаётся со стандартной таблицей; правится вручную или из панели.
 // В облако уходит постранично (DP plants, ≤ 255 байт): «стр/всего|Имя=60;Имя=65».
-// Команды из панели (DP plant_cmd): «list:N», «add:Имя=60», «del:Имя».
+// Команды из панели (DP plant_cmd): «list:N[:метка]», «add:Имя=60», «del:Имя».
 #pragma once
 #include <Arduino.h>
 #include <FS.h>
@@ -29,6 +29,7 @@ class Plants {
   std::vector<Item> _items;
   String _page;
   int _pageNo = 0;
+  uint8_t _ver = 0;   // версия стандартной таблицы, с которой создан файл
 
   void loadDefaults();
   bool save();

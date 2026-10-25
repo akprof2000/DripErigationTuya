@@ -76,12 +76,13 @@ export function usePlants() {
   const raw = useProps(p => p.plants as string) ?? '';
   const [pages, setPages] = useState<Record<number, Plant[]>>({});
   const [total, setTotal] = useState(0);
+  // метка времени в команде: облако не пропускает повтор одинакового значения DP
+  const ask = useCallback((page: number) => actions.plant_cmd?.set(`list:${page}:${Date.now()}`), [actions]);
 
   useEffect(() => {
     const m = /^(\d+)\/(\d+)\|(.*)$/.exec(raw);
     if (!m) return;
     const no = Number(m[1]);
-    const all = Number(m[2]);
     const items = m[3]
       .split(';')
       .map(e => {
@@ -89,20 +90,40 @@ export function usePlants() {
         return { name: e.slice(0, eq).trim(), border: Number(e.slice(eq + 1)) };
       })
       .filter(p => p.name && p.border >= 0);
-    setTotal(all);
-    setPages(prev => ({ ...(no === 0 ? {} : prev), [no]: items }));
-    if (no + 1 < all) actions.plant_cmd?.set(`list:${no + 1}`);
+    setTotal(Number(m[2]));
+    setPages(prev => ({ ...prev, [no]: items }));
   }, [raw]);
+
+  // догружаем недостающие страницы по одной
+  useEffect(() => {
+    for (let i = 0; i < total; i++)
+      if (!pages[i]) {
+        ask(i);
+        return;
+      }
+  }, [pages, total]);
 
   const plants: Plant[] = [];
   for (let i = 0; i < total; i++) plants.push(...(pages[i] ?? []));
   plants.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
-  const reload = useCallback(() => actions.plant_cmd?.set('list:0'), [actions]);
+  const reload = useCallback(() => {
+    setPages({});
+    ask(0);
+  }, [ask]);
   const add = useCallback(
-    (name: string, border: number) => actions.plant_cmd?.set(`add:${name.trim()}=${border}`),
+    (name: string, border: number) => {
+      setPages({});
+      actions.plant_cmd?.set(`add:${name.trim()}=${border}`);
+    },
     [actions]
   );
-  const remove = useCallback((name: string) => actions.plant_cmd?.set(`del:${name}`), [actions]);
+  const remove = useCallback(
+    (name: string) => {
+      setPages({});
+      actions.plant_cmd?.set(`del:${name}`);
+    },
+    [actions]
+  );
   return { plants, reload, add, remove };
 }
