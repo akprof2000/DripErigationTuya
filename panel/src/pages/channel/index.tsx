@@ -216,7 +216,8 @@ export default function ChannelPage() {
           value={nameDraft}
           placeholder={t('plant_search')}
           maxlength={30}
-          onChange={(e: any) => setNameDraft(String(e.detail))}
+          onInput={(e: any) => setNameDraft(String(e.detail?.value ?? e.detail))}
+          onChange={(e: any) => setNameDraft(String(e.detail?.value ?? e.detail))}
         />
         {plants.length > 0 && (
           <ScrollView scrollY className={styles.plantList}>

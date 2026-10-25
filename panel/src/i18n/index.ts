@@ -35,8 +35,12 @@ export function currentLang(): Lang {
   }
 }
 
+let active: 'ru' | 'en' | 'zh' = 'en';
+export const activeLang = () => active;
+
 export function applyLang(l: Lang) {
-  Strings.setLanguage(l === 'auto' ? appLang() : l);
+  active = l === 'auto' ? appLang() : l;
+  Strings.setLanguage(active);
 }
 
 export function setLang(l: Lang) {

@@ -1,5 +1,6 @@
 // Разбор значений DP, которые приходят в панель «сырыми» (как их шлёт устройство).
-import Strings from '@/i18n';
+import Strings, { activeLang } from '@/i18n';
+import strings from '@/i18n/strings';
 
 export const CHANNELS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export type Ch = (typeof CHANNELS)[number];
@@ -13,7 +14,8 @@ export const fmt = (s: string, ...args: (string | number)[]) =>
   args.reduce<string>((acc, a, i) => acc.replace(`{${i}}`, String(a)), s);
 
 export const t = (key: string, ...args: (string | number)[]) =>
-  fmt(Strings.getLang(key as never), ...args);
+  // сначала свои строки панели: облачный словарь Tuya перекрывает новые ключи английскими
+  fmt((strings as any)[activeLang()]?.[key] ?? Strings.getLang(key as never), ...args);
 
 /** raw-DP в панели — hex-строка. adc_raw: 8 × (тек, мин, макс), uint16 big-endian. */
 export function parseAdcRaw(hex: string | undefined) {
