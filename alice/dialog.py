@@ -54,12 +54,32 @@ def _hum(status, ch):
     return int(status.get("humidity_%d" % ch, 0))
 
 
+WATER_OPEN = ("open_hum", "forced_open")   # состояния клапана (DP valve_N), когда вода идёт
+
+
+def _watering(status, ch):
+    return status.get("valve_%d" % ch) in WATER_OPEN
+
+
+def _asks_watering(t):
+    """«на каких грядках идёт полив», «что сейчас поливается», «где открыт кран»."""
+    return ("ид" in t and "полив" in t) or "поливает" in t or "поливают" in t or "открыт" in t         or ("полив" in t and ("как" in t or "где" in t) and "грядк" in t)
+
+
 def answer(text, status):
     t = _norm(text)
     if not t.strip() or "помощ" in t or "умеешь" in t:
         return "Я рассказываю о грядках полива. " + HELP
     ch = find_bed(text, status)
     humid = "влаж" in t or "сух" in t or "мокр" in t
+    if not humid and _asks_watering(t):
+        if ch:
+            on = _watering(status, ch)
+            return "%s: %s." % (mapping.bed_name(status, ch), "сейчас идёт полив" if on else "сейчас полива нет")
+        names = [mapping.bed_name(status, c) for c in range(1, mapping.CHANNELS + 1) if _watering(status, c)]
+        if not names:
+            return "Сейчас полив нигде не идёт."
+        return "Сейчас поливаются: " + ", ".join(names) + "."
     if not humid and ("раст" in t or "посаж" in t or "что на" in t):
         if ch:
             return "На грядке %d — %s." % (ch, mapping.bed_name(status, ch))

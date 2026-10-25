@@ -104,6 +104,16 @@ class DialogTest(unittest.TestCase):
         self.assertIn("Растение 8 5 % (выключена)", all_h)
         self.assertIn("8 — Растение 8", self.ask("что где растёт"))
 
+    def test_watering(self):
+        st = dict(STATUS, valve_1="open_hum", valve_3="forced_open", valve_2="close_hum", valve_5="hyst")
+        a = lambda q: dialog.answer(q, st)
+        self.assertEqual(a("на каких грядках сейчас идёт полив"), "Сейчас поливаются: Растение 1, Кабачки.")
+        self.assertEqual(a("что сейчас поливается"), "Сейчас поливаются: Растение 1, Кабачки.")
+        self.assertEqual(a("поливаются ли кабачки"), "Кабачки: сейчас идёт полив.")
+        self.assertEqual(a("идёт ли полив на грядке 2"), "Растение 2: сейчас полива нет.")
+        self.assertEqual(dialog.answer("где идёт полив", STATUS), "Сейчас полив нигде не идёт.")
+        self.assertIn("влажность 42 %", a("какая влажность грядки 2"))
+
     def test_protocol(self):
         index._tuya = FakeTuya()
         req ={"version": "1.0", "session": {"new": False}, "request": {"original_utterance": "что растёт на грядке 3"}}
