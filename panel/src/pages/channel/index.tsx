@@ -1,6 +1,6 @@
 // Экран грядки: влажность и состояние клапана, режим, порог, имя, калибровка датчика.
 import React, { useEffect, useState } from 'react';
-import { View, Text, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
+import { View, Text, ScrollView, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
 import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
@@ -202,7 +202,7 @@ export default function ChannelPage() {
         useSlot
         showCancelButton
         cancelButtonText={t('btn_cancel')}
-        confirmButtonText={t('save')}
+        confirmButtonText={t('btn_save')}
         onConfirm={() => {
           rename(ch, nameDraft);
           // растение из справочника или своё — порог грядки ставится вместе с именем
@@ -219,7 +219,7 @@ export default function ChannelPage() {
           onChange={(e: any) => setNameDraft(String(e.detail))}
         />
         {plants.length > 0 && (
-          <View className={styles.plantList}>
+          <ScrollView scrollY className={styles.plantList}>
             {matches.map(p => (
               <View
                 key={p.name}
@@ -234,7 +234,7 @@ export default function ChannelPage() {
               </View>
             ))}
             {matches.length === 0 && <Text className={styles.muted}>{t('plant_none')}</Text>}
-          </View>
+          </ScrollView>
         )}
         <View className={styles.row}>
           <Text>{t('threshold')}</Text>
