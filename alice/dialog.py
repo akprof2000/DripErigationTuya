@@ -62,16 +62,17 @@ def _watering(status, ch):
 
 
 def _why_not(status):
-    """Почему клапаны закрыты: всё выключено, ночь или дождь (если полив в это время запрещён)."""
+    """Почему клапаны закрыты: ночь, дождь (если полив в это время запрещён), всё выключено — все причины сразу."""
     modes = [status.get("mode_%d" % c, "auto") for c in range(1, mapping.CHANNELS + 1)]
-    if all(m == "off" for m in modes):
-        return ": все грядки выключены"
+    why = []
     if status.get("night") and not status.get("run_on_night"):
-        return ": сейчас ночь, полив выключен до утра"
+        why.append("сейчас ночь, полив выключен до утра")
     if status.get("rain") and not status.get("run_on_rain"):
-        tail = ", поливаются только грядки в парнике" if "greenhouse" in modes else ""
-        return ": идёт дождь, полив на улице выключен" + tail
-    return ": земля достаточно влажная"
+        why.append("идёт дождь, полив на улице выключен" +
+                   (", поливаются только грядки в парнике" if "greenhouse" in modes else ""))
+    if all(m == "off" for m in modes):
+        why.append("все грядки выключены")
+    return ": " + "; ".join(why) if why else ": земля достаточно влажная"
 
 
 def _asks_watering(t):

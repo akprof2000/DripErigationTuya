@@ -118,7 +118,9 @@ class DialogTest(unittest.TestCase):
                          "Сейчас полив нигде не идёт: сейчас ночь, полив выключен до утра.")
         self.assertEqual(dialog.answer(q, dict(STATUS, rain=False)), "Сейчас полив нигде не идёт: земля достаточно влажная.")
         off = dict(STATUS, **{"mode_%d" % c: "off" for c in range(1, 9)})
-        self.assertEqual(dialog.answer(q, off), "Сейчас полив нигде не идёт: все грядки выключены.")
+        self.assertEqual(dialog.answer(q, dict(off, rain=False)), "Сейчас полив нигде не идёт: все грядки выключены.")
+        self.assertEqual(dialog.answer(q, dict(off, rain=False, night=True)),
+                         "Сейчас полив нигде не идёт: сейчас ночь, полив выключен до утра; все грядки выключены.")
         gh = dict(STATUS, rain=True, mode_2="greenhouse")
         self.assertIn("только грядки в парнике", dialog.answer(q, gh))
         self.assertIn("влажность 42 %", a("какая влажность грядки 2"))
