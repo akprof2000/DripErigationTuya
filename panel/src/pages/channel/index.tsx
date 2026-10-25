@@ -1,7 +1,7 @@
 // Экран грядки: влажность и состояние клапана, режим, порог, имя, калибровка датчика.
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
-import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
+import { View, Text, Input, ScrollView, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
+import { NavBar, Slider, Cell, CellGroup, Dialog } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
 import { useChannel, useBedNames, usePlants } from '@/lib/hooks';
@@ -212,12 +212,13 @@ export default function ChannelPage() {
         onCancel={() => setEditing(false)}
         onClose={() => setEditing(false)}
       >
-        <Field
+        <Input
+          className={styles.plantInput}
           value={nameDraft}
           placeholder={t('plant_search')}
-          maxlength={30}
-          onInput={(e: any) => setNameDraft(String(e.detail?.value ?? e.detail))}
-          onChange={(e: any) => setNameDraft(String(e.detail?.value ?? e.detail))}
+          maxLength={30}
+          // текст приходит на каждую букву — список фильтруется сразу
+          onInput={(e: any) => setNameDraft(String(e?.value ?? e?.detail?.value ?? ''))}
         />
         {plants.length > 0 && (
           <ScrollView scrollY className={styles.plantList}>
