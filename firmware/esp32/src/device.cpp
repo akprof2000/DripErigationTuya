@@ -10,7 +10,10 @@ static int arduinoMap(long x, long inMin, long inMax, long outMin, long outMax) 
 Device::Device(Hardware& hw, Config& cfg, fs::FS& fs, const char* statePath)
     : _hw(hw), _cfg(cfg), _fs(fs), _statePath(statePath), _fm(cfg) {}
 
-void Device::begin() { rebootState(); }
+void Device::begin() {
+  _plants.begin(_fs);
+  rebootState();
+}
 
 // ---------------------------------------------------------------- старт / перезагрузка
 void Device::rebootState() {
@@ -464,6 +467,10 @@ bool Device::applyDp(const char* code, double number, bool flag, const String& t
   else if (c == "mode_all") { for (auto& ch : _cfg.channels) ch.mode = text; _recheck = true; }
   else if (c == "command") { command(text, nowMs, unix); return true; }
   else if (c == "wizard") { wizard(text); return true; }
+  else if (c == "plant_cmd") {
+    if (!_plants.command(text)) { err = "команда справочника?"; return false; }
+    return true;
+  }
   else { err = "DP не обрабатывается"; return false; }
   save();
   return true;
@@ -651,6 +658,7 @@ void Device::snapshot(JsonObject out) {
   serializeJson(_wizard, wz);
   dp::putString(out, "wizard_state", wz);
   dp::putString(out, "alert", _alert);
+  dp::putString(out, "plants", _plants.page());
   uint8_t raw[NUM_CHANNELS * 6];
   for (uint8_t i = 0; i < NUM_CHANNELS; i++) {
     uint16_t v[3] = {(uint16_t)_curr[i], (uint16_t)_low[i], (uint16_t)_high[i]};

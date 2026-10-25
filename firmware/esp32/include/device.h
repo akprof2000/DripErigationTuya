@@ -11,6 +11,7 @@
 #include "config.h"
 #include "flowmon.h"
 #include "hw.h"
+#include "plants.h"
 
 #ifndef FW_VERSION
 #define FW_VERSION "1.1.0"
@@ -70,6 +71,7 @@ class Device {
   fs::FS& _fs;
   String _statePath;
   FlowMonitor _fm;
+  Plants _plants;
   uint8_t _faults = 0;
   bool _faultShutdownDone = false;
   bool _restart = false;

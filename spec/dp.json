@@ -135,7 +135,7 @@
       "id": 111,
       "code": "run_on_rain",
       "type": "bool",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Работать в дождь",
       "default": true
     },
@@ -143,7 +143,7 @@
       "id": 112,
       "code": "run_on_night",
       "type": "bool",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Работать ночью",
       "default": false
     },
@@ -151,7 +151,7 @@
       "id": 113,
       "code": "delta_hum",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Гистерезис влажности",
       "min": 0,
       "max": 50,
@@ -164,7 +164,7 @@
       "id": 114,
       "code": "delta_calib",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Дельта калибровки",
       "min": 0,
       "max": 500,
@@ -177,7 +177,7 @@
       "id": 115,
       "code": "boost_pump_valves",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Насос давления: от N клапанов (9 = выкл)",
       "min": 1,
       "max": 9,
@@ -190,7 +190,7 @@
       "id": 116,
       "code": "clog_threshold",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Порог засора фильтра",
       "min": 10,
       "max": 95,
@@ -203,7 +203,7 @@
       "id": 117,
       "code": "flow_monitor",
       "type": "bool",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Контроль засора фильтра",
       "default": true
     },
@@ -211,7 +211,7 @@
       "id": 118,
       "code": "autocal_no_delay",
       "type": "bool",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Авто-калибровка без задержки",
       "default": false
     },
@@ -282,7 +282,7 @@
       "id": 127,
       "code": "pump_start_sec",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Пусковое окно насоса: сколько секунд держать насос после открытия клапана (0 — не включать)",
       "min": 0,
       "max": 600,
@@ -319,7 +319,7 @@
       "per_channel": true,
       "code": "mode",
       "type": "enum",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Режим",
       "range": "mode",
       "default": "auto"
@@ -329,7 +329,7 @@
       "per_channel": true,
       "code": "border",
       "type": "value",
-      "mode": "rw",
+      "mode": "wr",
       "name": "Порог влажности",
       "min": 0,
       "max": 100,
@@ -343,7 +343,7 @@
       "per_channel": true,
       "code": "name",
       "type": "string",
-      "mode": "rw",
+      "mode": "wr",
       "maxlen": 32,
       "name": "Название грядки — для текста push-уведомлений (панель пишет при переименовании)"
     },
@@ -354,6 +354,22 @@
       "mode": "ro",
       "maxlen": 255,
       "name": "Текст push-уведомления «пересохла грядка» (прошивка пишет фразу на 10 с, иначе «-»); правило Tuya: alert ≠ «-»"
+    },
+    {
+      "id": 180,
+      "code": "plants",
+      "type": "string",
+      "mode": "ro",
+      "maxlen": 255,
+      "name": "Справочник растений из /plants.ini, страница: «стр/всего|Имя=60;Имя=65» (порог влажности, %)"
+    },
+    {
+      "id": 181,
+      "code": "plant_cmd",
+      "type": "string",
+      "mode": "wr",
+      "maxlen": 64,
+      "name": "Команда справочника: list:N (страница), add:Имя=60, del:Имя, reset"
     }
   ]
 }

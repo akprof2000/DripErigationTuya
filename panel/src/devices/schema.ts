@@ -199,7 +199,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "run_on_rain",
     "defaultRecommend": false,
     "editPermission": false,
@@ -207,7 +207,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 111,
-    "mode": "rw",
+    "mode": "wr",
     "name": "run_on_rain",
     "property": {
       "type": "bool"
@@ -216,7 +216,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "run_on_night",
     "defaultRecommend": false,
     "editPermission": false,
@@ -224,7 +224,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 112,
-    "mode": "rw",
+    "mode": "wr",
     "name": "run_on_night",
     "property": {
       "type": "bool"
@@ -233,7 +233,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "delta_hum",
     "defaultRecommend": false,
     "editPermission": false,
@@ -241,7 +241,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 113,
-    "mode": "rw",
+    "mode": "wr",
     "name": "delta_hum",
     "property": {
       "type": "value",
@@ -255,7 +255,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "delta_calib",
     "defaultRecommend": false,
     "editPermission": false,
@@ -263,7 +263,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 114,
-    "mode": "rw",
+    "mode": "wr",
     "name": "delta_calib",
     "property": {
       "type": "value",
@@ -277,7 +277,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "boost_pump_valves",
     "defaultRecommend": false,
     "editPermission": false,
@@ -285,7 +285,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 115,
-    "mode": "rw",
+    "mode": "wr",
     "name": "boost_pump_valves",
     "property": {
       "type": "value",
@@ -299,7 +299,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "clog_threshold",
     "defaultRecommend": false,
     "editPermission": false,
@@ -307,7 +307,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 116,
-    "mode": "rw",
+    "mode": "wr",
     "name": "clog_threshold",
     "property": {
       "type": "value",
@@ -321,7 +321,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "flow_monitor",
     "defaultRecommend": false,
     "editPermission": false,
@@ -329,7 +329,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 117,
-    "mode": "rw",
+    "mode": "wr",
     "name": "flow_monitor",
     "property": {
       "type": "bool"
@@ -338,7 +338,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "autocal_no_delay",
     "defaultRecommend": false,
     "editPermission": false,
@@ -346,7 +346,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 118,
-    "mode": "rw",
+    "mode": "wr",
     "name": "autocal_no_delay",
     "property": {
       "type": "bool"
@@ -515,7 +515,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "pump_start_sec",
     "defaultRecommend": false,
     "editPermission": false,
@@ -523,7 +523,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 127,
-    "mode": "rw",
+    "mode": "wr",
     "name": "pump_start_sec",
     "property": {
       "type": "value",
@@ -913,7 +913,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_1",
     "defaultRecommend": false,
     "editPermission": false,
@@ -921,7 +921,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 151,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_1",
     "property": {
       "type": "enum",
@@ -936,7 +936,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_2",
     "defaultRecommend": false,
     "editPermission": false,
@@ -944,7 +944,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 152,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_2",
     "property": {
       "type": "enum",
@@ -959,7 +959,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_3",
     "defaultRecommend": false,
     "editPermission": false,
@@ -967,7 +967,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 153,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_3",
     "property": {
       "type": "enum",
@@ -982,7 +982,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_4",
     "defaultRecommend": false,
     "editPermission": false,
@@ -990,7 +990,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 154,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_4",
     "property": {
       "type": "enum",
@@ -1005,7 +1005,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_5",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1013,7 +1013,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 155,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_5",
     "property": {
       "type": "enum",
@@ -1028,7 +1028,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_6",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1036,7 +1036,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 156,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_6",
     "property": {
       "type": "enum",
@@ -1051,7 +1051,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_7",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1059,7 +1059,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 157,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_7",
     "property": {
       "type": "enum",
@@ -1074,7 +1074,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "mode_8",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1082,7 +1082,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 158,
-    "mode": "rw",
+    "mode": "wr",
     "name": "mode_8",
     "property": {
       "type": "enum",
@@ -1097,7 +1097,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_1",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1105,7 +1105,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 161,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_1",
     "property": {
       "type": "value",
@@ -1119,7 +1119,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_2",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1127,7 +1127,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 162,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_2",
     "property": {
       "type": "value",
@@ -1141,7 +1141,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_3",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1149,7 +1149,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 163,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_3",
     "property": {
       "type": "value",
@@ -1163,7 +1163,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_4",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1171,7 +1171,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 164,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_4",
     "property": {
       "type": "value",
@@ -1185,7 +1185,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_5",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1193,7 +1193,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 165,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_5",
     "property": {
       "type": "value",
@@ -1207,7 +1207,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_6",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1215,7 +1215,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 166,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_6",
     "property": {
       "type": "value",
@@ -1229,7 +1229,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_7",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1237,7 +1237,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 167,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_7",
     "property": {
       "type": "value",
@@ -1251,7 +1251,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "border_8",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1259,7 +1259,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 168,
-    "mode": "rw",
+    "mode": "wr",
     "name": "border_8",
     "property": {
       "type": "value",
@@ -1273,7 +1273,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_1",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1281,7 +1281,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 171,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_1",
     "property": {
       "type": "string",
@@ -1291,7 +1291,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_2",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1299,7 +1299,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 172,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_2",
     "property": {
       "type": "string",
@@ -1309,7 +1309,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_3",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1317,7 +1317,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 173,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_3",
     "property": {
       "type": "string",
@@ -1327,7 +1327,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_4",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1335,7 +1335,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 174,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_4",
     "property": {
       "type": "string",
@@ -1345,7 +1345,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_5",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1353,7 +1353,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 175,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_5",
     "property": {
       "type": "string",
@@ -1363,7 +1363,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_6",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1371,7 +1371,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 176,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_6",
     "property": {
       "type": "string",
@@ -1381,7 +1381,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_7",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1389,7 +1389,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 177,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_7",
     "property": {
       "type": "string",
@@ -1399,7 +1399,7 @@ export const defaultSchema = [
   },
   {
     "attr": 0,
-    "canTrigger": true,
+    "canTrigger": false,
     "code": "name_8",
     "defaultRecommend": false,
     "editPermission": false,
@@ -1407,7 +1407,7 @@ export const defaultSchema = [
     "extContent": "",
     "iconname": "",
     "id": 178,
-    "mode": "rw",
+    "mode": "wr",
     "name": "name_8",
     "property": {
       "type": "string",
@@ -1430,6 +1430,42 @@ export const defaultSchema = [
     "property": {
       "type": "string",
       "maxlen": 255
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": true,
+    "code": "plants",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": false,
+    "extContent": "",
+    "iconname": "",
+    "id": 180,
+    "mode": "ro",
+    "name": "plants",
+    "property": {
+      "type": "string",
+      "maxlen": 255
+    },
+    "type": "obj"
+  },
+  {
+    "attr": 0,
+    "canTrigger": false,
+    "code": "plant_cmd",
+    "defaultRecommend": false,
+    "editPermission": false,
+    "executable": true,
+    "extContent": "",
+    "iconname": "",
+    "id": 181,
+    "mode": "wr",
+    "name": "plant_cmd",
+    "property": {
+      "type": "string",
+      "maxlen": 64
     },
     "type": "obj"
   }

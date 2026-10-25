@@ -4,7 +4,7 @@ import { View, Text, useQuery, navigateTo, navigateBack } from '@ray-js/ray';
 import { NavBar, Slider, Cell, CellGroup, Field, Dialog } from '@ray-js/smart-ui';
 import { useActions, useDevice, useProps } from '@ray-js/panel-sdk';
 import { Ch, MODES, t, bedName, parseAdcRaw } from '@/lib/dp';
-import { useChannel, useBedNames } from '@/lib/hooks';
+import { useChannel, useBedNames, usePlants } from '@/lib/hooks';
 import { loadDailyFromLog, loadHourlyFromLog, loadValveDay, dayOf } from '@/lib/cloud';
 import Chart from '@/components/Chart';
 import ValveChart from '@/components/ValveChart';
@@ -62,10 +62,15 @@ export default function ChannelPage() {
 
   const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
+  const [borderDraft, setBorderDraft] = useState(border);
+  const { plants, reload, add, remove } = usePlants();
   const askName = () => {
     setNameDraft(names[ch - 1] ?? '');
+    setBorderDraft(border);
+    reload();
     setEditing(true);
   };
+  const known = plants.find(p => p.name.toLowerCase() === nameDraft.trim().toLowerCase());
 
   return (
     <View className={page.page}>
@@ -196,6 +201,8 @@ export default function ChannelPage() {
         confirmButtonText={t('save')}
         onConfirm={() => {
           rename(ch, nameDraft);
+          // растение из справочника или своё — порог грядки ставится вместе с именем
+          if (borderDraft !== border) actions[`border_${ch}`].set(borderDraft);
           setEditing(false);
         }}
         onCancel={() => setEditing(false)}
@@ -207,6 +214,37 @@ export default function ChannelPage() {
           maxlength={30}
           onChange={(e: any) => setNameDraft(String(e.detail))}
         />
+        {plants.length > 0 && (
+          <View className={styles.plantList}>
+            {plants.map(p => (
+              <Text
+                key={p.name}
+                className={`${styles.segItem} ${known === p ? styles.segActive : ''}`}
+                onClick={() => {
+                  setNameDraft(p.name);
+                  setBorderDraft(p.border);
+                }}
+              >
+                {p.name} {p.border}%
+              </Text>
+            ))}
+          </View>
+        )}
+        <View className={styles.row}>
+          <Text>{t('threshold')}</Text>
+          <Text>{borderDraft}%</Text>
+        </View>
+        <Slider value={borderDraft} min={0} max={100} step={1} onChange={v => setBorderDraft(v)} />
+        {nameDraft.trim() !== '' && (!known || known.border !== borderDraft) && (
+          <Text className={styles.link} onClick={() => add(nameDraft, borderDraft)}>
+            {t('plant_add')}
+          </Text>
+        )}
+        {known && (
+          <Text className={styles.link} onClick={() => remove(known.name)}>
+            {t('plant_del')}
+          </Text>
+        )}
       </Dialog>
     </View>
   );

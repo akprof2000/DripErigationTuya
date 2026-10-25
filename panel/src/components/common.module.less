@@ -241,3 +241,21 @@
   padding: 0 24rpx;
   color: @accent;
 }
+
+// 🌿 справочник растений в диалоге имени грядки
+.plantList {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8rpx;
+  max-height: 420rpx;
+  overflow-y: auto;
+  margin: 16rpx 0;
+}
+
+.link {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  padding: 14rpx 0;
+  color: var(--app-M1, #1989fa);
+}

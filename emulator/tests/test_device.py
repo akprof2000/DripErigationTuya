@@ -43,7 +43,7 @@ class SpecTest(unittest.TestCase):
     def test_expand_channels(self):
         self.assertEqual(SPEC.by_code["humidity_1"].id, 131)
         self.assertEqual(SPEC.by_code["border_8"].id, 168)
-        self.assertEqual(len(SPEC.dps), 68)            # как в консоли Tuya
+        self.assertEqual(len(SPEC.dps), 70)            # как в консоли Tuya
         self.assertEqual(SPEC.by_id[158].code, "mode_8")
 
     def test_value_scale(self):

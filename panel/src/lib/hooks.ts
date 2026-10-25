@@ -61,3 +61,47 @@ export function useBedNames() {
 
   return { names, rename };
 }
+
+export interface Plant {
+  name: string;
+  border: number;
+}
+
+/**
+ * Справочник растений с контроллера (/plants.ini на SD). DP plants отдаёт одну
+ * страницу «стр/всего|Имя=60;Имя=65», остальные страницы запрашиваются через plant_cmd.
+ */
+export function usePlants() {
+  const actions = useActions();
+  const raw = useProps(p => p.plants as string) ?? '';
+  const [pages, setPages] = useState<Record<number, Plant[]>>({});
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const m = /^(\d+)\/(\d+)\|(.*)$/.exec(raw);
+    if (!m) return;
+    const no = Number(m[1]);
+    const all = Number(m[2]);
+    const items = m[3]
+      .split(';')
+      .map(e => {
+        const eq = e.lastIndexOf('=');
+        return { name: e.slice(0, eq).trim(), border: Number(e.slice(eq + 1)) };
+      })
+      .filter(p => p.name && p.border >= 0);
+    setTotal(all);
+    setPages(prev => ({ ...(no === 0 ? {} : prev), [no]: items }));
+    if (no + 1 < all) actions.plant_cmd?.set(`list:${no + 1}`);
+  }, [raw]);
+
+  const plants: Plant[] = [];
+  for (let i = 0; i < total; i++) plants.push(...(pages[i] ?? []));
+
+  const reload = useCallback(() => actions.plant_cmd?.set('list:0'), [actions]);
+  const add = useCallback(
+    (name: string, border: number) => actions.plant_cmd?.set(`add:${name.trim()}=${border}`),
+    [actions]
+  );
+  const remove = useCallback((name: string) => actions.plant_cmd?.set(`del:${name}`), [actions]);
+  return { plants, reload, add, remove };
+}
