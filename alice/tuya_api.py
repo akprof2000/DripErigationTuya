@@ -82,4 +82,11 @@ class Tuya:
         """commands: {code: value}."""
         self.token()
         payload = {"commands": [{"code": c, "value": v} for c, v in commands.items()]}
-        return self._request("POST", "/v1.0/iot-03/devices/%s/commands" % device_id, payload)
+        path = "/v1.0/iot-03/devices/%s/commands" % device_id
+        for attempt in range(3):   # облако отклоняет частые команды подряд — повторить через паузу
+            try:
+                return self._request("POST", path, payload)
+            except TuyaError:
+                if attempt == 2:
+                    raise
+                time.sleep(1.0 + attempt)

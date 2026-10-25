@@ -201,6 +201,20 @@ class TuyaSignTest(unittest.TestCase):
         self.assertEqual(len(s), 64)
         self.assertEqual(s, s.upper())
 
+    def test_send_retry(self):
+        n = {"cmd": 0}
+
+        def opener(method, url, headers, body):
+            if "/token" in url:
+                return {"success": True, "result": {"access_token": "AT", "expire_time": 7200}}
+            n["cmd"] += 1
+            return {"success": n["cmd"] >= 2, "code": 2008, "msg": "too frequent", "result": True}
+
+        import tuya_api
+        tuya_api.time.sleep = lambda s: None
+        Tuya("id", "secret", opener=opener).send("d", {"mode_4": "on"})
+        self.assertEqual(n["cmd"], 2)
+
     def test_requests(self):
         calls = []
 
