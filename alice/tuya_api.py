@@ -76,7 +76,8 @@ class Tuya:
     def online(self, device_id):
         self.token()
         res = self._request("GET", "/v1.0/iot-03/devices/%s" % device_id)
-        return bool(res and res.get("online"))
+        # в iot-03 поле называется is_online, в старом /v1.0/devices — online
+        return bool(res and (res.get("is_online") if "is_online" in res else res.get("online")))
 
     def send(self, device_id, commands):
         """commands: {code: value}."""

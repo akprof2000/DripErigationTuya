@@ -121,6 +121,13 @@ def answer(text, status):
     return "Не поняла вопрос. " + HELP
 
 
+class Offline(Exception):
+    """Контроллер не в сети: облако Tuya помнит только последние значения."""
+
+
+OFFLINE = "Контроллер полива сейчас не в сети. Проверьте питание и Wi-Fi на даче."
+
+
 def handle(req, status_fn):
     """Запрос Яндекс Диалогов → ответ. status_fn() читает DP контроллера (только когда нужен)."""
     r = req.get("request", {})
@@ -135,6 +142,8 @@ def handle(req, status_fn):
     else:
         try:
             out = answer(text, status_fn())
+        except Offline:
+            out = OFFLINE
         except Exception:   # облако Tuya или контроллер недоступны
             out = "Не получилось связаться с контроллером полива. Попробуйте позже."
     return {"version": req.get("version", "1.0"),

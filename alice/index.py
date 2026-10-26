@@ -141,6 +141,13 @@ def oauth_token(event):
 
 
 # ---------------------------------------------------------------------- протокол «Умного дома»
+def _dialog_status():
+    dev_id = env("TUYA_DEVICE_ID")
+    if not tuya().online(dev_id):
+        raise dialog.Offline()
+    return tuya().status(dev_id)
+
+
 def smart_home(event, path):
     if not check_token(_header(event, "Authorization").replace("Bearer ", "").strip(), "access"):
         return resp(401, {"error": "unauthorized"})
@@ -154,8 +161,9 @@ def smart_home(event, path):
     if path.endswith("/user/devices/query"):
         req = json.loads(_body(event) or "{}")
         try:
-            status = tuya().status(dev_id)
-            online = True
+            # облако отдаёт последние значения и у выключенного контроллера — смотрим online
+            online = tuya().online(dev_id)
+            status = tuya().status(dev_id) if online else {}
         except TuyaError:
             status, online = {}, False
         out = []
@@ -167,11 +175,21 @@ def smart_home(event, path):
         return resp(200, {"request_id": rid, "payload": {"devices": out}})
     if path.endswith("/user/devices/action"):
         req = json.loads(_body(event) or "{}")
+        try:
+            online = tuya().online(dev_id)
+        except TuyaError:
+            online = False
         out = []
         for d in req.get("payload", {}).get("devices", []):
             caps = []
             for cap in d.get("capabilities", []):
                 result = {"status": "DONE"}
+                if not online:
+                    result = {"status": "ERROR", "error_code": "DEVICE_UNREACHABLE",
+                              "error_message": "контроллер полива не в сети"}
+                    caps.append({"type": cap["type"], "state": {"instance": cap["state"]["instance"],
+                                                                "action_result": result}})
+                    continue
                 try:
                     cmds = mapping.commands(d["id"], cap)
                     if cmds:
@@ -208,7 +226,7 @@ def handler(event, context):
     method = event.get("httpMethod", "GET")
     if path.endswith("/dialog"):   # разговорный навык «Полив»
         req = json.loads(_body(event) or "{}")
-        return resp(200, dialog.handle(req, lambda: tuya().status(env("TUYA_DEVICE_ID"))))
+        return resp(200, dialog.handle(req, _dialog_status))
     if path.endswith("/oauth/authorize"):
         return oauth_authorize(event)
     if path.endswith("/oauth/token"):

@@ -23,8 +23,12 @@ STATUS.update({"name_3": "Кабачки", "mode_8": "off", "humidity_8": 5, "ra
 
 
 class FakeTuya:
-    def __init__(self):
+    def __init__(self, online=True):
         self.sent = []
+        self.is_online = online
+
+    def online(self, dev):
+        return self.is_online
 
     def status(self, dev):
         return dict(STATUS)
@@ -156,6 +160,21 @@ class ProtocolTest(unittest.TestCase):
         _, b = call("/v1.0/user/devices/action", body=body)
         self.assertEqual(b["payload"]["devices"][0]["capabilities"][0]["state"]["action_result"]["status"], "DONE")
         self.assertEqual(index._tuya.sent, [{"mode_1": "off"}])
+
+
+    def test_offline(self):
+        index._tuya = FakeTuya(online=False)
+        _, b = call("/v1.0/user/devices/query", body={"devices": [{"id": "bed_1"}]})
+        self.assertEqual(b["payload"]["devices"][0]["error_code"], "DEVICE_UNREACHABLE")
+        body = {"payload": {"devices": [{"id": "bed_1", "capabilities": [
+            {"type": mapping.ON_OFF, "state": {"instance": "on", "value": True}}]}]}}
+        _, b = call("/v1.0/user/devices/action", body=body)
+        res = b["payload"]["devices"][0]["capabilities"][0]["state"]["action_result"]
+        self.assertEqual(res["error_code"], "DEVICE_UNREACHABLE")
+        self.assertEqual(index._tuya.sent, [])
+        req = {"version": "1.0", "session": {"new": False}, "request": {"original_utterance": "какая влажность сейчас"}}
+        _, b = call("/dialog", body=req, token=False)
+        self.assertEqual(b["response"]["text"], dialog.OFFLINE)
 
 
 class OAuthTest(unittest.TestCase):
