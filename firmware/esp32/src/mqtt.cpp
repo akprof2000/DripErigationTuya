@@ -7,6 +7,7 @@
 #include "mqtt.h"
 
 #include "log.h"
+#include "tls.h"
 
 namespace {
 enum : uint8_t { CONNECT = 1, CONNACK = 2, PUBLISH = 3, PUBACK = 4, SUBSCRIBE = 8, SUBACK = 9,
@@ -145,7 +146,7 @@ bool MqttClient::connect(const String& host, uint16_t port, const String& client
   close();
   _keepalive = keepaliveSec;
   _err = "";
-  _client.setInsecure();   // TODO: CA Tuya (см. http.h)
+  tlsConfigure(_client);   // проверка сертификата по корневым CA Tuya (tls.cpp)
   _client.setHandshakeTimeout(CONNECT_TIMEOUT_MS / 1000);
   if (!_client.connect(host.c_str(), port, (int32_t)CONNECT_TIMEOUT_MS)) {
     _err = "TLS: нет соединения с " + host;

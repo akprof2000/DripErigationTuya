@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mpy" / "lib"))
 
-from device import Device, decide_valve, arduino_map, PUMP_TIMEOUT  # noqa: E402
+from device import Device, decide_valve, arduino_map  # noqa: E402
 from spec import Spec  # noqa: E402
 from world import World, ADC_WET, ADC_DRY  # noqa: E402
 
@@ -89,7 +89,7 @@ class DeviceTest(unittest.TestCase):
         w, d = make()
         w.soil = [0.05] + [0.95] * 7
         c = Clock(d)
-        c.run(PUMP_TIMEOUT + 5)
+        c.run(d.cfg.pump_start_sec + 5)
         self.assertFalse(d.pump)          # boost_pump_valves = 9 → насос только в пусковом окне
         d.cfg.boost_pump_valves = 1
         d.stop_pump_if_need()

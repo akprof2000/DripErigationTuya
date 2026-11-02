@@ -9,6 +9,8 @@ static volatile uint32_t s_lastGapMs = 0;
 
 void IRAM_ATTR Hardware::onPulse() {
   uint32_t now = millis();
+  // 🛡️ антидребезг: чаще 3 мс (≈44 л/мин) у датчика на 450 имп/л не бывает — это дребезг
+  if (s_lastPulseMs != 0 && now - s_lastPulseMs < 3) return;
   if (s_lastPulseMs != 0) s_lastGapMs = now - s_lastPulseMs;
   s_lastPulseMs = now;
   s_pulses++;

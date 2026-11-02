@@ -111,6 +111,16 @@ void App::loop() {
   JsonDocument changed;
   JsonObject ch = changed.to<JsonObject>();
   if (_dev->report(ch, false)) queue(ch, false);
+  // 🔄 фильтр видит только изменившиеся DP, поэтому раз в минуту прогоняем полный снимок:
+  // иначе постоянное значение (та же влажность 44 % часами) не попадало бы в облачную
+  // статистику по maxAge, и в почасовых графиках панели были бы дыры
+  if (_upSec - _refreshAt >= REPORT_REFRESH_EVERY_S) {
+    _refreshAt = _upSec;
+    JsonDocument all;
+    JsonObject a = all.to<JsonObject>();
+    _dev->snapshot(a);
+    queue(a, false);
+  }
   sendEvents();
   if (_upSec - _sysAt >= SYS_INFO_EVERY_S || _sysAt == 0) sysInfo();
 

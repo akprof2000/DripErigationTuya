@@ -16,7 +16,7 @@
 class App {
  public:
   static constexpr uint32_t TICK_MS = 1000, SYS_INFO_EVERY_S = 60, BUTTON_PORTAL_MS = 5000,
-                            STATE_OK_AFTER_S = 60, WDT_TIMEOUT_S = 120;
+                            STATE_OK_AFTER_S = 60, WDT_TIMEOUT_S = 120, REPORT_REFRESH_EVERY_S = 60;
   void setup();
   void loop();
 
@@ -34,6 +34,7 @@ class App {
   uint32_t _lastTick = 0;
   uint32_t _upSec = 0;             // монотонные секунды работы
   uint32_t _sysAt = 0;
+  uint32_t _refreshAt = 0;         // _upSec последнего прогона полного снимка через фильтр
   bool _ntpStarted = false;
   bool _wasOnline = false;
   uint32_t _onlineSince = 0;       // _upSec, когда вышли в облако (0 = офлайн)

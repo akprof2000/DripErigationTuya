@@ -206,9 +206,16 @@ def smart_home(event, path):
 
 
 # ---------------------------------------------------------------------- уведомление Яндекса по таймеру
+_last_push = None   # состояние из прошлого push (живёт, пока тёплый контейнер функции)
+
+
 def push_state():
+    global _last_push
     status = tuya().status(env("TUYA_DEVICE_ID"))
     devs = [dict(id=d["id"], **mapping.state(d["id"], status)) for d in mapping.devices(status)]
+    if devs == _last_push:
+        return "unchanged"   # Яндекс просит callback только при изменении состояния
+    _last_push = devs
     body = json.dumps({"ts": time.time(), "payload": {"user_id": USER_ID, "devices": devs}}).encode()
     url = "https://dialogs.yandex.net/api/v1/skills/%s/callback/state" % env("YANDEX_SKILL_ID")
     req = urllib.request.Request(url, data=body, method="POST", headers={

@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "mpy" / "lib"))
 
-from device import Device, PUMP_TIMEOUT, DRAIN_TIMEOUT, FW_VERSION  # noqa: E402
+from device import Device, DRAIN_TIMEOUT, FW_VERSION  # noqa: E402
 from outbox import Outbox  # noqa: E402
 from spec import Spec  # noqa: E402
 from world import World, ADC_WET, ADC_DRY  # noqa: E402
@@ -53,7 +53,7 @@ class PumpStateTest(unittest.TestCase):
         w.soil[0] = 0.1                       # грядка 1 сухая → клапан откроется на первом же цикле
         c.run(2)
         self.assertEqual(d.pump_state(), "start")
-        c.run(PUMP_TIMEOUT + 2)
+        c.run(d.cfg.pump_start_sec + 2)
         self.assertEqual(d.pump_state(), "off")   # порог 9 = насос по клапанам не нужен
         d.cfg.boost_pump_valves = 1
         d.stop_pump_if_need()

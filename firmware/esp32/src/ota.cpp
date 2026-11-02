@@ -11,10 +11,12 @@
 
 #include <Update.h>
 #include <esp_ota_ops.h>
+#include <esp_task_wdt.h>
 
 #include "http.h"
 #include "log.h"
 #include "storage.h"
+#include "tls.h"
 
 namespace {
 constexpr const char* OTA_DIR = "/ota";
@@ -199,7 +201,7 @@ static bool openImage(HTTPClient& http, WiFiClientSecure& tls, WiFiClient& plain
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   bool ok;
   if (url.startsWith("https://")) {
-    tls.setInsecure();   // TODO: CA Tuya
+    tlsConfigure(tls);   // проверка сертификата по корневым CA Tuya (tls.cpp)
     ok = http.begin(tls, url);
   } else {
     ok = http.begin(plain, url);
@@ -279,6 +281,7 @@ bool Ota::download(const String& httpsUrl, const String& httpUrl, size_t size, c
         ok = false;
         break;
       }
+      esp_task_wdt_reset();   // скачивание на медленной связи идёт минутами — кормим пёсика
       delay(1);
     }
     if (!ok) break;
@@ -288,6 +291,7 @@ bool Ota::download(const String& httpsUrl, const String& httpUrl, size_t size, c
       break;
     }
     got += n;
+    esp_task_wdt_reset();
     const int pct = (int)((uint64_t)got * 100 / size);
     if (pct - lastPct >= 10) {
       lastPct = pct;

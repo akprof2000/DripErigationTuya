@@ -3,7 +3,12 @@
 Источник: DripIrrigation-Cloud/DripIrrigation (irrigation.cpp, DripIrrigation.ino,
 valves.cpp, sensors.h/.cpp, objects.cpp, telegram.cpp). Где поведение повторено
 1:1, в комментарии указана исходная функция. Контроль засора фильтра —
-flowmon.py (порт objects.cpp, fm*).
+flowmon.py (порт objects.cpp, fm*), справочник растений — plants.py
+(порт firmware/esp32/src/plants.cpp).
+
+Синхронизировано с firmware/esp32/src/device.cpp (прошивка 1.1.11): pump_start_sec,
+имена грядок (name_N), справочник растений (plants/plant_cmd), уведомления (alert),
+flow_silence без привязки к насосу, _recheck по смене настроек, rain_resume/night_resume.
 
 Уведомления, которые прошивка слала в Telegram, здесь становятся событиями
 (DP event, JSON с кодом — см. docs/dp.md). Диалоги бота (калибровка, поиск датчика) стали «мастерами»:
@@ -13,6 +18,7 @@ import json
 import struct
 
 from flowmon import FlowMonitor
+from plants import Plants
 from spec import Spec
 
 
@@ -31,34 +37,40 @@ def merge(d, **kw):
     return out
 
 
-# ---- константы из прошивки (objects.h / timing.h) ----
-FW_VERSION = "1.0.1"    # версия прошивки — уходит в sys_info и в активацию Tuya (softVer)
+# ---- константы из прошивки (objects.h / timing.h / device.h) ----
+FW_VERSION = "1.1.11"   # версия прошивки — уходит в sys_info и в активацию Tuya (softVer)
 MODE_AUTO, MODE_ON, MODE_OFF, MODE_GREENHOUSE = "auto", "on", "off", "greenhouse"
 V_INIT, V_OPEN_HUM, V_CLOSE_HUM, V_HYST, V_FORCED_OPEN, V_FORCED_CLOSE = (
     "init", "open_hum", "close_hum", "hyst", "forced_open", "forced_close")
 
 FILLING_WAIT = 3        # с — импульс заливки бака
 DRAIN_TIMEOUT = 12      # с — пролив дренажа
-PUMP_TIMEOUT = 30       # с — пусковой режим насоса
 PULSES_PER_LITER = 450  # имп./л — как FLOW_PULSES_PER_LITER в прошивке
 TIMEOUT_WAIT = 18000    # с — после стольких секунд «всё закрыто» первое открытие делает пролив
 HUM_AUTOCAL_CONFIRM = 3
 SEARCH_DELTA = 300      # АЦП — порог «этот датчик вынули из воды» (telegram.cpp, SearchDetect)
 CALIB_MIN_SPAN = 100    # АЦП — минимальный размах калибровки (telegram.cpp, CalibFinish)
 
-FLOW_SILENCE_MIN = 2    # мин — насос работает, клапаны открыты, импульсов нет → «расходомер молчит»
+FLOW_SILENCE_MIN = 2        # мин — клапаны открыты, а импульсов нет → «расходомер молчит»
+NO_FLOW_ALERT_GAP = 6 * 3600  # с — уведомление «нет потока» не чаще раза в 6 ч (device.cpp)
+
+DRY_ALERT_PCT = 20          # % — грядка «пересохла» (device.cpp)
+DRY_REARM_PCT = 25          # % — намокла выше этого → снова следим
+ALERT_HOLD = 10             # с — сколько текст живёт в DP alert
+ALERT_QUIET_AFTER_BOOT = 300  # с — сухая уже до перезагрузки — не повторять
 
 
 CHANNEL_FIELDS = ("name", "border", "mode", "min_val", "max_val")
 CONFIG_FIELDS = ("run_on_rain", "run_on_night", "delta_calib", "delta_hum", "boost_pump_valves",
-                 "utime_all_closed", "flow_session", "flow_total", "clean_flow_per_valve",
-                 "clean_flow_drain", "clog_threshold", "flow_monitor", "autocal_no_delay")
+                 "pump_start_sec", "utime_all_closed", "flow_session", "flow_total",
+                 "clean_flow_per_valve", "clean_flow_drain", "clog_threshold", "flow_monitor",
+                 "autocal_no_delay")
 
 
 class Channel:
     def __init__(self, name="", border=60, mode=MODE_AUTO, min_val=1015, max_val=3240):
-        # название грядки живёт в облачных свойствах устройства (его хранит панель);
-        # здесь — только для консоли эмулятора
+        # название грядки живёт на контроллере (DP name_N, с 1.1.6);
+        # панель дублирует его в облачное свойство для старых записей
         self.name = name
         self.border = border
         self.mode = mode
@@ -75,6 +87,7 @@ class Config:
         self.delta_calib = 15
         self.delta_hum = 5
         self.boost_pump_valves = 9
+        self.pump_start_sec = 30    # пусковое окно насоса после открытия клапана, с (0 — выкл)
         self.channels = [Channel() for _ in range(8)]
         self.utime_all_closed = 0
         self.flow_session = 0.0
@@ -156,6 +169,13 @@ class Device:
         self.world = world
         self.state_path = state_path
         self.cfg = Config.load(state_path) if state_path else Config()
+        # 🌿 справочник растений — файл рядом с настройками (на плате: /plants.ini)
+        plants_path = None
+        if state_path:
+            directory = state_path.replace("\\", "/").rpartition("/")[0]
+            plants_path = (directory + "/" if directory else "") + "plants.ini"
+        self.plants = Plants(plants_path)
+        self.plants.begin()
         self.events = []
         self.hw_faults = set()          # rtc | sd | valves — как faults.h
         self._last_report = {}
@@ -187,10 +207,15 @@ class Device:
         self.flow_rate = 0.0
         self.fm = FlowMonitor(self.cfg)
         self.flow_pulses = 0
-        self._pulse_frac = 0.0             # импульсов расходомера с включения
+        self._pulse_frac = 0.0           # импульсов расходомера с включения
         self.last_pulse_at = None        # unix последнего импульса
         self.flow_silent = False         # тревога «расходомер молчит»
         self._silent_min = 0
+        self._recheck = False            # настройки изменили из облака — пересчитать на следующем тике
+        self._alert = "-"                # текст уведомления в DP alert («-» = нет)
+        self._alert_since = 0.0
+        self._no_flow_alert_at = 0.0     # монотонные секунды последнего «нет потока»
+        self._dry_alerted = [False] * self.n
         self.boot_unix = None
         self.fault_shutdown_done = False
         self.wizard = {"op": "idle"}
@@ -285,7 +310,7 @@ class Device:
             self.world.pump_on = on          # реле насоса (на плате — GPIO)
 
     def pump_state(self):
-        """DP pump_state: off | start (пусковые 30 с) | valves (по порогу) | drain (пролив)."""
+        """DP pump_state: off | start (пусковое окно) | valves (по порогу) | drain (пролив)."""
         if not self.pump:
             return "off"
         if self.drain_active:
@@ -307,8 +332,11 @@ class Device:
         self.world.open_valves[i] = True
         self.is_open_flag = True
         if self.is_close[i]:
-            self._set_pump(True)
-            self.pump_start = now
+            if self.cfg.pump_start_sec:     # пусковое окно: насос на pump_start_sec после открытия
+                self._set_pump(True)
+                self.pump_start = now
+            else:
+                self.stop_pump_if_need()    # без пускового окна — только по порогу boost_pump_valves
             if self.count_open() == 0:
                 self.flow_session = 0.0          # flowResetSession
         self.is_close[i] = False
@@ -387,6 +415,9 @@ class Device:
                 if not self.old_rmode:
                     self.old_rmode = True
                     self.event("rain_block")
+            elif self.old_rmode:            # дождь, но работу в дождь разрешили из приложения
+                self.old_rmode = False
+                self.event("rain_resume")
         else:
             if self.rain_now:
                 self.rain_now = False
@@ -406,6 +437,9 @@ class Device:
                     if self.is_open_flag:            # valveOpened() со сбросом
                         self.is_open_flag = False
                         self.start_tank_fill(now)
+            elif self.old_nmode:            # ночь, но работу ночью разрешили из приложения
+                self.old_nmode = False
+                self.event("night_resume")
         else:
             if self.night_now:
                 self.night_now = False
@@ -429,23 +463,56 @@ class Device:
                     self.old_mode[i] = V_FORCED_CLOSE
                     self.event("valve", ch=i + 1, s=V_FORCED_CLOSE, w=1)
 
-    def _flow_silence_minute(self, unix):
-        """Насос работает, клапаны открыты, а импульсов нет FLOW_SILENCE_MIN минут —
-        датчик залип или забит. Событие один раз, второе — когда импульсы вернулись."""
-        expect = self.pump and self.count_open() > 0 and not self.drain_active
+    def _set_alert(self, text, now):
+        self._alert = text
+        self._alert_since = now
+
+    def _flow_silence_minute(self, now, unix):
+        """Клапаны открыты (с насосом или без), а импульсов нет FLOW_SILENCE_MIN минут —
+        датчик залип, забит или пустой бак. Событие один раз, второе — когда импульсы
+        вернулись; уведомление в alert — не чаще раза в NO_FLOW_ALERT_GAP."""
+        expect = self.count_open() > 0 and not self.drain_active
         silent = expect and (self.last_pulse_at is None or unix - self.last_pulse_at >= 60)
-        self._silent_min = self._silent_min + 1 if silent else 0
+        self._silent_min = min(255, self._silent_min + 1) if silent else 0
         if self._silent_min >= FLOW_SILENCE_MIN and not self.flow_silent:
             self.flow_silent = True
             self.event("flow_silent")
+            # не чаще раза в 6 ч: при пустом баке клапаны открываются каждый цикл
+            if self._no_flow_alert_at == 0 or now - self._no_flow_alert_at >= NO_FLOW_ALERT_GAP:
+                self._no_flow_alert_at = now if now else 1
+                self._set_alert("Нет потока воды: клапаны открыты %d мин, а вода не идёт"
+                                % FLOW_SILENCE_MIN, now)
         elif self.flow_silent and not silent and self.last_pulse_at is not None:
             self.flow_silent = False
             self.event("flow_ok")
+
+    def dry_alerts(self, now):
+        """Пересохшие грядки (кроме режима «Выкл») — одна фраза на все сразу;
+        повтор по грядке после намокания выше DRY_REARM_PCT."""
+        names = []
+        for i in range(self.n):
+            p = self.percent(i)
+            if p > DRY_REARM_PCT:
+                self._dry_alerted[i] = False
+            if self._dry_alerted[i] or p >= DRY_ALERT_PCT or self.cfg.channels[i].mode == MODE_OFF:
+                continue
+            self._dry_alerted[i] = True
+            if now < ALERT_QUIET_AFTER_BOOT:   # сухая уже до перезагрузки — не повторять
+                continue
+            nm = self.cfg.channels[i].name or ("Растение %d" % (i + 1))
+            names.append((nm, p))
+        if len(names) == 1:
+            self._set_alert("Грядка %s пересохла: %d %%" % (names[0][0], names[0][1]), now)
+        elif names:
+            self._set_alert("Пересохли грядки: " + ", ".join(
+                "%s (%d %%)" % (nm, p) for nm, p in names), now)
 
     # =====================================================================
     # loop(): now — секунды эмулятора (аналог millis), unix — время суток
     # =====================================================================
     def tick(self, now, unix, dt):
+        if self._alert != "-" and now - self._alert_since >= ALERT_HOLD:
+            self._alert = "-"
         if self.hw_faults:
             if not self.fault_shutdown_done:
                 self.fault_shutdown_done = True
@@ -459,7 +526,7 @@ class Device:
             self.fill_active = False
             self.world.fill_on = False
         self.spillage_tick(now)
-        if self.pump_start is not None and now - self.pump_start > PUMP_TIMEOUT:
+        if self.pump_start is not None and now - self.pump_start > self.cfg.pump_start_sec:
             self.pump_start = None
             self.stop_pump_if_need()
 
@@ -498,13 +565,15 @@ class Device:
             self.save()
 
         minute = int(unix // 60)
-        if minute != self.last_minute:
+        if minute != self.last_minute or self._recheck:   # _recheck: режим/порог изменили из приложения
             self.last_minute = minute
+            self._recheck = False
             self.world.step_minute(minute % 1440)
             self.read_all()
             self.auto_calibrate_bounds()
+            self.dry_alerts(now)
             self.control_valves(self.check_weather(now), now, unix)
-            self._flow_silence_minute(unix)
+            self._flow_silence_minute(now, unix)
             self.cfg.flow_session = self.flow_session
 
     # =====================================================================
@@ -513,29 +582,41 @@ class Device:
     def apply_dp(self, code, value, now, unix):
         ch_cfg = None
         base, _, num = code.rpartition("_")
-        if num.isdigit() and base in ("mode", "border"):
+        if num.isdigit() and base in ("mode", "border", "name"):
+            if not 1 <= int(num) <= self.n:
+                raise ValueError("bad channel")
             ch_cfg = self.cfg.channels[int(num) - 1]
         if ch_cfg is not None:
             if base == "mode":
                 ch_cfg.mode = value
+            elif base == "name":
+                ch_cfg.name = str(value)[:32]
             else:
                 ch_cfg.border = value
+            self._recheck = True
             self.save()
             return
         if code in ("run_on_rain", "run_on_night", "delta_hum", "boost_pump_valves",
-                    "clog_threshold", "flow_monitor", "autocal_no_delay", "delta_calib"):
+                    "pump_start_sec", "clog_threshold", "flow_monitor", "autocal_no_delay",
+                    "delta_calib"):
             setattr(self.cfg, code, value)
             if code == "boost_pump_valves":
                 self.stop_pump_if_need()
+            if code in ("run_on_rain", "run_on_night"):
+                self._recheck = True
             self.save()
         elif code == "mode_all":
             for c in self.cfg.channels:
                 c.mode = value
+            self._recheck = True
             self.save()
         elif code == "command":
             self._command(value, now, unix)
         elif code == "wizard":
             self._wizard(value)
+        elif code == "plant_cmd":
+            if not self.plants.command(str(value)):
+                raise ValueError("команда справочника?")
         else:
             raise ValueError("DP %s не обрабатывается" % code)
 
@@ -685,9 +766,12 @@ class Device:
             "run_on_rain": self.cfg.run_on_rain, "run_on_night": self.cfg.run_on_night,
             "delta_hum": self.cfg.delta_hum, "delta_calib": self.cfg.delta_calib,
             "boost_pump_valves": self.cfg.boost_pump_valves,
+            "pump_start_sec": self.cfg.pump_start_sec,
             "clog_threshold": self.cfg.clog_threshold, "flow_monitor": self.cfg.flow_monitor,
             "autocal_no_delay": self.cfg.autocal_no_delay,
             "wizard_state": dumps(self.wizard),
+            "alert": self._alert,
+            "plants": self.plants.page(),
             "adc_raw": struct.pack(">" + "H" * (3 * self.n),
                                    *[v for i in range(self.n) for v in (self.curr[i], self.low[i], self.high[i])]),
         }
@@ -698,6 +782,7 @@ class Device:
             out["valve_%d" % n] = self.old_mode[i]
             out["mode_%d" % n] = c.mode
             out["border_%d" % n] = c.border
+            out["name_%d" % n] = c.name or ("Растение %d" % n)
         return {k: s.encode(k, v) for k, v in out.items()}
 
     def report(self, full=False):

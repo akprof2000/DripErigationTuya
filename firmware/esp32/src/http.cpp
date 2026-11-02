@@ -9,6 +9,7 @@
 #include "http.h"
 
 #include "log.h"
+#include "tls.h"
 
 static const char* UA = "TUYA_IOT_SDK";   // как в TuyaOpen; iot-dns и ATOP на него не ругаются
 
@@ -70,7 +71,7 @@ bool httpOpen(const char* method, const String& url, const uint8_t* body, size_t
   }
   WiFiClientSecure& c = resp.client;
   c.stop();
-  c.setInsecure();   // TODO: CA Tuya во флеш
+  tlsConfigure(c);   // проверка сертификата по корневым CA Tuya (tls.cpp)
   c.setHandshakeTimeout(timeoutMs / 1000 > 0 ? timeoutMs / 1000 : 1);
   if (!c.connect(host.c_str(), port, (int32_t)timeoutMs)) {
     char eb[96] = "";
