@@ -75,6 +75,10 @@ python tools/deploy.py --port COM8 --monitor           # консоль
 
 Готовый образ для OTA и прошивки лежит в [релизах](https://github.com/akprof2000/DripErigationTuya/releases).
 
+Хотите повторить проект у себя с нуля (свой продукт Tuya, своя лицензия,
+панель, пуши, OTA, Алиса) — пошаговая инструкция со всеми нажатиями в консоли:
+[docs/replicate.md](docs/replicate.md).
+
 ### Панель
 
 ```bash
